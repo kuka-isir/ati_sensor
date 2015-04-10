@@ -16,14 +16,14 @@ int main(int argc, char **argv)
   clock_t t(0);
   // The sensor object
   cout << "Creating sensor" << endl;
-  ati::FTSensor ftsensor("192.168.100.103");
+  ati::FTSensor ftsensor;
   
   cout << "Initializing sensor" << endl;
-  if(! ftsensor.init())
+  if(! ftsensor.init("192.168.100.103"))
     return -1;
 
-  cout << "Setting timeout to 100ms" << endl;
-  ftsensor.setTimeout(0,100000);
+  cout << "Setting timeout to 1.0sec" << endl;
+  ftsensor.setTimeout(1.0);
   
   cout << "Setting sensor bias" << endl;
   ftsensor.setBias();

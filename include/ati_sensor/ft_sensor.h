@@ -48,12 +48,13 @@ typedef struct command_struct{
 class FTSensor{
 public:
   // Constructor
-  FTSensor(std::string ip,unsigned int calibration_index=ati::current_calibration);
+  FTSensor();
   ~FTSensor();
   
   // Initialization, reading parameters from XML files, etc..
-  bool init();
-  bool init(uint16_t cmd);
+  bool init(std::string ip                      = ati::default_ip,
+            unsigned int calibration_index      = ati::current_calibration, 
+            uint16_t cmd                        = ati::command_s::REALTIME);
   
   // GET functions
   // Read parameters
@@ -90,7 +91,8 @@ public:
   const int getPort(){return this->port;}
   // Set the zero of the sensor	
   void setBias();
-  void setTimeout(unsigned int sec,unsigned int usec);
+  void setTimeout(float sec);
+  bool isInitialized();
 protected:
   // Socket info
   bool parseCalibrationData();
@@ -116,15 +118,14 @@ protected:
   struct sockaddr_in addr_;  
   struct hostent *hePtr_;
 
-  // Sensor parameters
-  //double resp_.cpf ;
-  //double resp_.cpt;
-  
   // Communication protocol
   response_s resp_;
   command_s cmd_;
   unsigned char request_[8];    
   unsigned char response_[36];
+  bool initialized_;
+  bool timeout_set_;
+  struct timeval timeval_;
 
 };
 }

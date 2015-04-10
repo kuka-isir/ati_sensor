@@ -52,10 +52,10 @@ class FTSensorPublisher
       ROS_INFO_STREAM("ATISensor frame : "<< frame_ft_);
 
       // Create a new sensor
-      ftsensor_ = boost::shared_ptr<ati::FTSensor>(new ati::FTSensor(ip_));
+      ftsensor_ = boost::shared_ptr<ati::FTSensor>(new ati::FTSensor());
 
       // Init FT Sensor
-      ftsensor_->init();
+      ftsensor_->init(ip_);
       // Set bias
       ftsensor_->setBias();
 

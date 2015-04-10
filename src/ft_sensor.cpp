@@ -46,19 +46,21 @@ void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[],xmlCha
 }
 using namespace ati;
 
-FTSensor::FTSensor(std::string ip,unsigned int calibration_index)
-  {
-    if(ip.empty()){
-        std::cerr<< "IP provided is empty, using default ip "<<default_ip<<std::endl; 
-        this->ip = default_ip;
-    }else
-        this->ip = ip;
-    
-    this->port = command_s::DEFAULT_PORT;
-    cmd_.command = command_s::STOP;
-    cmd_.sample_count = 1;
-    this->calibration_index = calibration_index;
-  }
+FTSensor::FTSensor()
+{
+    //  Default parameters
+    initialized_                = false;
+    this->ip                    = ati::default_ip;
+    this->port                  = command_s::DEFAULT_PORT;
+    cmd_.command                = command_s::STOP;
+    cmd_.sample_count           = 1;
+    this->calibration_index     = ati::current_calibration;
+    socketHandle_               =  -1;
+    resp_.cpf                   = 1000000;
+    resp_.cpt                   = 1000000;
+    timeval_.tv_sec             = 0.1;
+    timeval_.tv_usec            = 0.;
+}
 
 FTSensor::~FTSensor()
 {
@@ -67,21 +69,17 @@ FTSensor::~FTSensor()
       std::cout << "Sensor shutdown sucessfully" << std::endl;
 }
 // Initialization read from XML file
-bool FTSensor::init()
-{
-  return init(command_s::REALTIME);
-}
 bool FTSensor::startStreaming()
 {
     switch(cmd_.command){
       case command_s::REALTIME:
-	std::cout << "Starting realtime streaming" << std::endl;
+	//std::cout << "Starting realtime streaming" << std::endl;
 	return startRealTimeStreaming();
       case command_s::BUFFERED:
-	std::cout << "Starting buffered streaming" << std::endl;
+	//std::cout << "Starting buffered streaming" << std::endl;
 	return startBufferedStreaming();
       case command_s::MULTIUNIT:
-	std::cout << "Starting multi-unit streaming" << std::endl;
+	//std::cout << "Starting multi-unit streaming" << std::endl;
 	return startMultiUnitStreaming();
       default:
 	std::cout <<cmd_.command<< ": command mode not allowed"<< std::endl;
@@ -89,17 +87,37 @@ bool FTSensor::startStreaming()
     }
 }
 
-bool FTSensor::init(uint16_t cmd)
+bool FTSensor::init(std::string ip,unsigned int calibration_index,uint16_t cmd)
 {
+  //  Re-Initialize parameters
+  initialized_ = true;
+  this->ip = ip;
+  this->port = command_s::DEFAULT_PORT;
+  cmd_.command = command_s::STOP;
+  cmd_.sample_count = 1;
+  this->calibration_index = calibration_index;
+  
+  //  Open Socket
   if(openSocket())
   {
+        if (setsockopt(this->socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
+            std::cerr << "Error setting timeout" << std::endl;
+      
     stopStreaming(); // if previously launched
     setCommand(cmd); // Setting cmd mode
-    startStreaming(); // Starting streaming
-  }else{
-    std::cerr << "Error during initialization" << std::endl;
-    return false;
-  }
+    
+    initialized_ &= startStreaming();                        // Starting streaming
+    initialized_ &= getResponse();
+      // Parse Calibration from web server
+    if(initialized_)
+        if (!parseCalibrationData())
+            std::cerr << "Using default calibration parameters" << std::endl;
+        
+  }else
+    initialized_ = false;
+  if (!initialized_)
+    std::cerr << "Error during initialization, FT sensor NOT started" << std::endl;
+  return initialized_;
 }
 bool FTSensor::openSocket()
 {
@@ -108,11 +126,6 @@ bool FTSensor::openSocket()
   if (socketHandle_ == -1) {
       std::cerr << "failed to init sensor socket"<<std::endl;
       return false;
-  }
-
-  // Parse Calibration from web server
-  if(!parseCalibrationData()){
-    std::cerr << "Using default calibration parameters" << std::endl;
   }
 
   // set the socket parameters
@@ -175,8 +188,6 @@ bool FTSensor::parseCalibrationData()
       std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
       xmlFreeDoc(doc);
   }else{
-    resp_.cpf = 1000000;
-    resp_.cpt = 1000000;
     std::cerr << "Could not parse file " << filename<<std::endl;
     std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
     std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
@@ -215,10 +226,12 @@ bool FTSensor::getResponse()
 
 void FTSensor::doComm()
 {
-  if(!sendCommand())
-    std::cerr << "Error while sending command" << std::endl;
-  if(!getResponse())
-    std::cerr << "Error while getting response, command:" <<cmd_.command <<std::endl;
+    if (isInitialized()) {
+        if(!sendCommand())
+            std::cerr << "Error while sending command" << std::endl;
+        if(!getResponse())
+            std::cerr << "Error while getting response, command:" <<cmd_.command <<std::endl;
+    }
 }
 
 
@@ -227,15 +240,24 @@ void FTSensor::setBias()
   std::cout << "Setting bias"<<std::endl;
   this->setSoftwareBias();
 }
-
-void FTSensor::setTimeout(unsigned int sec, unsigned int usec)
+bool FTSensor::isInitialized()
 {
-  struct timeval tv;
-  tv.tv_sec = sec;
-  tv.tv_usec = usec;
-  if (setsockopt(this->socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-      std::cerr << "Error setting timeout" << std::endl;
-  }
+    return initialized_;
+}
+
+void FTSensor::setTimeout(float sec)
+{
+    if (sec <= 0) {
+        std::cerr << "Can't set timeout <= 0 sec" << std::endl;
+        return;
+    }
+        
+    if (isInitialized()) {
+        std::cerr << "Can't set timeout if socket is initialized, call this before init()." << std::endl;
+        return;
+    }
+  timeval_.tv_sec = static_cast<unsigned int>(sec);
+  timeval_.tv_usec = static_cast<unsigned int>(sec/1.e6);
 }
 
 bool FTSensor::resetThresholdLatch()
