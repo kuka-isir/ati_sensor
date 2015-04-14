@@ -52,9 +52,7 @@ public:
   ~FTSensor();
   
   // Initialization, reading parameters from XML files, etc..
-  bool init(std::string ip                      = ati::default_ip,
-            unsigned int calibration_index      = ati::current_calibration, 
-            uint16_t cmd                        = ati::command_s::REALTIME);
+  bool init(std::string ip, int calibration_index = ati::current_calibration, uint16_t cmd = ati::command_s::REALTIME);
   
   // GET functions
   // Read parameters
@@ -113,7 +111,7 @@ protected:
   void doComm();
   std::string ip;
   int port;
-  unsigned int calibration_index;
+  int calibration_index;
   int socketHandle_;     
   struct sockaddr_in addr_;  
   struct hostent *hePtr_;

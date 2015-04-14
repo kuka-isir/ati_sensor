@@ -50,16 +50,16 @@ FTSensor::FTSensor()
 {
     //  Default parameters
     initialized_                = false;
-    this->ip                    = ati::default_ip;
-    this->port                  = command_s::DEFAULT_PORT;
+    ip                    = ati::default_ip;
+    port                  = command_s::DEFAULT_PORT;
     cmd_.command                = command_s::STOP;
     cmd_.sample_count           = 1;
-    this->calibration_index     = ati::current_calibration;
+    calibration_index     = ati::current_calibration;
     socketHandle_               =  -1;
     resp_.cpf                   = 1000000;
     resp_.cpt                   = 1000000;
-    timeval_.tv_sec             = 0.1;
-    timeval_.tv_usec            = 0.;
+    timeval_.tv_sec             = 1;
+    timeval_.tv_usec            = 0;
 }
 
 FTSensor::~FTSensor()
@@ -87,7 +87,7 @@ bool FTSensor::startStreaming()
     }
 }
 
-bool FTSensor::init(std::string ip,unsigned int calibration_index,uint16_t cmd)
+bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
 {
   //  Re-Initialize parameters
   initialized_ = true;
@@ -98,7 +98,7 @@ bool FTSensor::init(std::string ip,unsigned int calibration_index,uint16_t cmd)
   this->calibration_index = calibration_index;
   
   //  Open Socket
-  if(openSocket())
+  if(!ip.empty() && openSocket())
   {
         if (setsockopt(this->socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
             std::cerr << "Error setting timeout" << std::endl;
