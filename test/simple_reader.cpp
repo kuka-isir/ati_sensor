@@ -19,10 +19,9 @@ int main(int argc, char **argv)
   ati::FTSensor ftsensor;
   
   cout << "Initializing sensor" << endl;
-  if(! ftsensor.init("192.168.100.103"))
-    return -1;
+  ftsensor.init("192.168.100.103");
 
-  cout << "Setting timeout to 1.0sec" << endl;
+  cout << "Setting timeout to 1.0 sec" << endl;
   ftsensor.setTimeout(1.0);
   
   cout << "Setting sensor bias" << endl;
