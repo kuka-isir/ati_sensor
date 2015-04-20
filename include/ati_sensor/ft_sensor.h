@@ -13,6 +13,23 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sstream>
+// Give RTnet capabilities
+#ifndef HAVE_RTNET
+
+#define rt_dev_socket socket
+#define rt_dev_setsockopt setsockopt
+#define rt_dev_bind bind
+#define rt_dev_recvfrom recvfrom
+#define rt_dev_sendto sendto
+#define rt_dev_close close
+#define rt_dev_connect connect
+
+#else
+#include <rtnet.h>
+#include <rtdm/rtdm.h>
+#endif
+
+#define MAX_XML_SIZE 35535
 
 namespace ati{
 static const std::string default_ip = "192.168.100.103";
@@ -86,14 +103,14 @@ public:
   }
   // Write the ip of the sensor
   const std::string getIP(){return this->ip;}
-  const int getPort(){return this->port;}
+  const uint16_t getPort(){return this->port;}
   // Set the zero of the sensor	
   void setBias();
   void setTimeout(float sec);
   bool isInitialized();
+  bool getCalibrationData();
 protected:
   // Socket info
-  bool parseCalibrationData();
   bool startRealTimeStreaming(uint32_t sample_count=1);
   bool startBufferedStreaming(uint32_t sample_count=100);
   bool startMultiUnitStreaming(uint32_t sample_count=100);
@@ -101,8 +118,10 @@ protected:
   bool setSoftwareBias();
   bool stopStreaming();
   bool startStreaming();
-  bool openSocket();
-  int closeSocket();
+  bool openSockets();
+  void openSocket(int& handle, const std::string ip, const uint16_t port, const int option);
+  bool closeSockets();
+  int closeSocket(const int& handle);
   void setCommand(uint16_t cmd);
   void setSampleCount(uint32_t sample_count);
   bool sendCommand();
@@ -110,10 +129,12 @@ protected:
   bool getResponse();
   void doComm();
   std::string ip;
-  int port;
+  uint16_t port;
   int calibration_index;
-  int socketHandle_;     
-  struct sockaddr_in addr_;  
+  int socketHandle_;
+  int socketHTTPHandle_;  
+  struct sockaddr_in addr_; 
+  socklen_t addr_len_;
   struct hostent *hePtr_;
 
   // Communication protocol
@@ -124,6 +145,9 @@ protected:
   bool initialized_;
   bool timeout_set_;
   struct timeval timeval_;
+  int response_ret_;
+  char xml_c_[MAX_XML_SIZE];
+  std::string xml_s_;
 
 };
 }

@@ -22,9 +22,9 @@
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 #include <sstream>
-  // Read elements from XML file
-
-void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[],xmlChar ret[])
+#include <boost/graph/graph_concepts.hpp>
+// Read elements from XML file
+static void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[],xmlChar ret[])
 {
   xmlNode *cur_node = NULL;
   xmlNode *cur_node_temp = NULL;
@@ -50,22 +50,23 @@ FTSensor::FTSensor()
 {
     //  Default parameters
     initialized_                = false;
-    ip                    = ati::default_ip;
-    port                  = command_s::DEFAULT_PORT;
+    ip                          = ati::default_ip;
+    port                        = command_s::DEFAULT_PORT;
     cmd_.command                = command_s::STOP;
     cmd_.sample_count           = 1;
-    calibration_index     = ati::current_calibration;
-    socketHandle_               =  -1;
+    calibration_index           = ati::current_calibration;
+    socketHandle_               = -1;
     resp_.cpf                   = 1000000;
     resp_.cpt                   = 1000000;
-    timeval_.tv_sec             = 1;
+    timeval_.tv_sec             = 2;
     timeval_.tv_usec            = 0;
+    xml_s_.reserve(MAX_XML_SIZE);
 }
 
 FTSensor::~FTSensor()
 {
-  
-  if(stopStreaming() && 0 == closeSocket())
+  stopStreaming();
+  if( 0 == closeSockets())
       std::cout << "Sensor shutdown sucessfully" << std::endl;
 }
 // Initialization read from XML file
@@ -98,59 +99,97 @@ bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
   this->calibration_index = calibration_index;
   
   //  Open Socket
-  if(!ip.empty() && openSocket())
+  if(!ip.empty() && openSockets())
   {
-        if (setsockopt(this->socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
+#ifndef HAVE_RTNET
+        if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
             std::cerr << "Error setting timeout" << std::endl;
-      
-    stopStreaming(); // if previously launched
+#else
+        nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
+        if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
+            std::cerr << "Error setting timeout" << std::endl;
+#endif
+    if(!stopStreaming()) // if previously launched
+        std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
     setCommand(cmd); // Setting cmd mode
     
     initialized_ &= startStreaming();                        // Starting streaming
+    
+    if (!initialized_)
+        std::cerr << "\033[1;31mCould not start streaming\033[0m" << std::endl;
+    
     initialized_ &= getResponse();
+    
+    if (!initialized_)
+        std::cerr << "\033[1;31mCould not get response\033[0m" << std::endl;
       // Parse Calibration from web server
     if(initialized_)
-        if (!parseCalibrationData())
+        if (!getCalibrationData())
             std::cerr << "Using default calibration parameters" << std::endl;
-        
   }else
     initialized_ = false;
+  
   if (!initialized_)
-    std::cerr << "Error during initialization, FT sensor NOT started" << std::endl;
+    std::cerr << "\033[1;31mError during initialization, FT sensor NOT started\033[0m" << std::endl;
+  
   return initialized_;
 }
-bool FTSensor::openSocket()
+bool FTSensor::openSockets()
+{
+  // To get the online configuration (need to build rtnet with TCP option)
+  openSocket(socketHTTPHandle_,getIP(),80,IPPROTO_TCP);
+  // The data socket
+  openSocket(socketHandle_,getIP(),getPort(),IPPROTO_UDP);
+  
+  return socketHTTPHandle_ !=-1 && socketHandle_ !=-1;
+}
+void FTSensor::openSocket(int& handle,const std::string ip,const uint16_t port,const int option)
 {
   // create the socket
-  socketHandle_ = socket(AF_INET, SOCK_DGRAM, 0);
-  if (socketHandle_ == -1) {
-      std::cerr << "failed to init sensor socket"<<std::endl;
-      return false;
-  }
+    if (handle != -1)
+        rt_dev_close(handle);
+    
+    if(option == IPPROTO_UDP)
+        handle = rt_dev_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    else if(option == IPPROTO_TCP)
+        handle = rt_dev_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    else
+        handle = rt_dev_socket(AF_INET, SOCK_DGRAM, 0);
+    
+    if (handle < 0) {
+        std::cerr << "failed to init sensor socket, please make sure your can ping the sensor"<<std::endl;
+        return;
+    }
+    
+    // re-use address in case it's still binded
+    rt_dev_setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, 0, 0);
 
-  // set the socket parameters
-  hePtr_ = gethostbyname(getIP().c_str());
-  memcpy(&addr_.sin_addr, hePtr_->h_addr_list[0], hePtr_->h_length);
-  addr_.sin_family = AF_INET;
-  addr_.sin_port = htons(getPort());
+    // set the socket parameters
+    struct sockaddr_in addr = {0};
+    hostent * hePtr = NULL; 
+    hePtr = gethostbyname(ip.c_str());
+    memcpy(&addr.sin_addr, hePtr->h_addr_list[0], hePtr->h_length);
+    
+    //addr_.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
 
-  // connect
-  int err = connect( socketHandle_, (struct sockaddr *)&addr_, sizeof(addr_) );
-  if (err == -1) {
-    std::cerr << "Could not connect to the sensor at "<<getIP()<<":"<<getPort();
-    return false;
-  }
-  return true;
+    // connect
+    if (rt_dev_connect(handle, (struct sockaddr*) &addr, sizeof(addr)) < 0)
+        std::cerr  << "\033[1;31mCould not connect to "<<ip<<":"<<port<<"\033[0m" << std::endl ;
+    return;
 }
-int FTSensor::closeSocket()
+bool FTSensor::closeSockets()
 {
-  int ret = close(this->socketHandle_) ;
-  if(ret != 0){
-    std::cerr << "Error while closing socket ("<<ret<<")"<<std::endl;
-  }
-  return ret;
+  return closeSocket(socketHandle_) > 0 && closeSocket(socketHTTPHandle_) > 0;
 }
-bool FTSensor::parseCalibrationData()
+int FTSensor::closeSocket(const int& handle)
+{
+  if(handle < 0 )
+      return true;
+  return rt_dev_close(handle);
+}
+bool FTSensor::getCalibrationData()
 {
     // parse the configuration 
   xmlNode *root_element = NULL;
@@ -164,10 +203,38 @@ bool FTSensor::parseCalibrationData()
     std::cout << "Using calibration index "<<calibration_index<< std::endl;
   }else
       std::cout << "Using current calibration" << std::endl;
+  #ifndef HAVE_RTNET
   std::string filename = "http://"+getIP()+"/netftapi2.xml"+index;
 
   xmlDocPtr doc = xmlReadFile(filename.c_str(), NULL, 0);
-  
+#else
+    static const uint32_t chunkSize = 4;        // Every chunk of data will be of this size
+    static const uint32_t maxSize = 65536;      // The maximum file size to receive
+                          // The recv buffer
+    std::string filename = "/netftapi2.xml"+index; // the name of the file to reveice
+    std::string host = getIP(); 
+    
+    std::string request_s = "GET "+filename+" HTTP/1.1\r\nHost: "+host+"\r\n\r\n";
+
+    if (rt_dev_send(socketHTTPHandle_, request_s.c_str(),request_s.length(), 0) < 0)
+        std::cerr << "Could not send GET request to "<<getIP()<<":80. Please make sure that RTnet TCP protocol is installed"<<std::endl;
+    
+    int recvLength=0;
+    int posBuff = 0;
+    while(posBuff < maxSize) // Just a security to avoid infinity loop
+    {
+            recvLength = rt_dev_recv(socketHTTPHandle_, &xml_c_[posBuff],chunkSize, 0);
+            posBuff += recvLength;
+            if(recvLength <= 0) // The last chunk returns 0
+                break;
+    }
+    xml_s_ = xml_c_;
+    std::size_t n = xml_s_.find("<?xml");
+    if(n != std::string::npos)
+        xml_s_ = xml_s_.substr(n);
+
+    xmlDocPtr doc = xmlReadMemory(xml_s_.c_str(),xml_s_.length(),"noname.xml",NULL, 0);//xmlReadFile(xml_s_.c_str(),NULL,0);
+#endif
   if (doc != NULL)
   {
       root_element = xmlDocGetRootElement(doc);
@@ -206,12 +273,15 @@ bool FTSensor::sendCommand(uint16_t cmd)
   *reinterpret_cast<uint16_t*>(&request_[0]) = htons(command_s::command_header);
   *reinterpret_cast<uint16_t*>(&request_[2]) = htons(cmd); 
   *reinterpret_cast<uint16_t*>(&request_[4]) = htonl(cmd_.sample_count);
-  return send(socketHandle_, request_, 8, 0 )==8;
+  //return rt_dev_sendto(socketHandle_, (void*) &request_, sizeof(request_), 0, (sockaddr*) &addr_, addr_len_ ) == 8;
+  return rt_dev_send(socketHandle_, (void*) &request_, sizeof(request_), 0) == sizeof(request_);//, (sockaddr*) &addr_, addr_len_ ) == 8;
 }
 
 bool FTSensor::getResponse()
 {
-  ssize_t ret = recv(socketHandle_, response_, 36, 0 );
+
+  //response_ret_ = rt_dev_recvfrom(socketHandle_, (void*) &response_, sizeof(response_), 0, (sockaddr*) &addr_, &addr_len_ );
+  response_ret_ = rt_dev_recv(socketHandle_, (void*) &response_, sizeof(response_), 0);//, (sockaddr*) &addr_, &addr_len_ );
   resp_.rdt_sequence = ntohl(*reinterpret_cast<uint32_t*>(&response_[0]));
   resp_.ft_sequence = ntohl(*reinterpret_cast<uint32_t*>(&response_[4]));
   resp_.status = ntohl(*reinterpret_cast<uint32_t*>(&response_[8]));
@@ -221,7 +291,7 @@ bool FTSensor::getResponse()
   resp_.Tx = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 3 * 4])));
   resp_.Ty = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 4 * 4])));
   resp_.Tz = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 5 * 4])));
-  return ret==36;
+  return response_ret_==sizeof(response_);
 }
 
 void FTSensor::doComm()
@@ -237,7 +307,7 @@ void FTSensor::doComm()
 
 void FTSensor::setBias()
 {
-  std::cout << "Setting bias"<<std::endl;
+  //std::cout << "Setting bias"<<std::endl;
   this->setSoftwareBias();
 }
 bool FTSensor::isInitialized()
@@ -262,7 +332,7 @@ void FTSensor::setTimeout(float sec)
 
 bool FTSensor::resetThresholdLatch()
 {
-  if(-1 == sendCommand(command_s::RESET_THRESHOLD_LATCH)){
+  if(! sendCommand(command_s::RESET_THRESHOLD_LATCH)){
     std::cerr << "Could not start reset threshold latch" << std::endl;
       return false;
   }
@@ -270,12 +340,14 @@ bool FTSensor::resetThresholdLatch()
 }
 bool FTSensor::setSoftwareBias()
 {
-  stopStreaming();
-  if(-1 == sendCommand(command_s::SET_SOFWARE_BIAS)){
-    std::cerr << "Could not set software bias" << std::endl;
+  //if(!stopStreaming())
+      //std::cerr << "Could not stop streaming" << std::endl;
+  if(! sendCommand(command_s::SET_SOFWARE_BIAS)){
+    ;//std::cerr << "Could not set software bias" << std::endl;
       return false;
   }
-  startStreaming();
+  //if(!startStreaming())
+      //std::cerr << "Could not restart streaming" << std::endl;
   return true;
 }
 bool FTSensor::stopStreaming()
@@ -287,7 +359,7 @@ bool FTSensor::startBufferedStreaming(uint32_t sample_count)
 {
   setSampleCount(sample_count);
   setCommand(command_s::BUFFERED);
-  if(-1 == sendCommand()){
+  if(! sendCommand()){
     std::cerr << "Could not start buffered streaming" << std::endl;
       return false;
   }
@@ -297,7 +369,7 @@ bool FTSensor::startMultiUnitStreaming(uint32_t sample_count)
 {
   setSampleCount(sample_count);
   setCommand(command_s::MULTIUNIT);
-  if(-1 == sendCommand()){
+  if(! sendCommand()){
     std::cerr << "Could not start multi-unit streaming" << std::endl;
       return false;
   }
@@ -307,7 +379,7 @@ bool FTSensor::startRealTimeStreaming(uint32_t sample_count)
 {
   setSampleCount(sample_count);
   setCommand(command_s::REALTIME);
-  if(-1 == sendCommand()){
+  if(! sendCommand()){
     std::cerr << "Could not start realtime streaming" << std::endl;
     return false;
   }
