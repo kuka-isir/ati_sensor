@@ -13,19 +13,24 @@ before_install:
   - export ROS_DISTRO=hydro
   - export CI_SOURCE_PATH=$(pwd)
   # Bootstrap a minimal ROS installation
-  - git clone https://github.com/jhu-lcsr/ros_ci_tools /tmp/ros_ci_tools && export PATH=/tmp/ros_ci_tools:$PATH
-  - ros_ci_bootstrap public
+  - sudo sh -c "echo 'deb http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main' > /etc/apt/sources.list.d/ros-latest.list"
+  - wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+  - sudo apt-get update
+  - sudo apt-get install ros-$ROS_DISTRO-desktop-full
   - source /opt/ros/$ROS_DISTRO/setup.bash
-  # Create non-isolated workspace
-  - mkdir -p ~/ws/src
-  - pushd ~/ws/src
+  - sudo -E rosdep init
+  - rosdep update
+  - mkdir -p ~/catkin_ws/src
+  - cd ~/catkin_ws/src
+  - catkin_init_workspace
+  - cd ~/catkin_ws/
   - ln -s $CI_SOURCE_PATH
 
 install:
   # build the normal catkin workspace
-  - pushd ~/ws
+  - cd ~/catkin_ws/
   - catkin_make -j2
 script:
   # Run tests
   - source devel/setup.bash
-  - catkin_make 
+  - catkin_make
