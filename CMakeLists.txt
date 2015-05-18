@@ -8,7 +8,6 @@ set(standalone_exec_name standalone_test)
 
 find_package(catkin REQUIRED COMPONENTS 
   roscpp 
-  message_generation 
   std_msgs 
   geometry_msgs
   cmake_modules
