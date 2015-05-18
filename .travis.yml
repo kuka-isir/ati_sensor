@@ -23,8 +23,8 @@ before_install:
   - mkdir -p ~/catkin_ws/src
   - cd ~/catkin_ws/src
   - catkin_init_workspace
-  - cd ~/catkin_ws/
   - ln -s $CI_SOURCE_PATH
+  - git clone https://github.com/ros/cmake_modules.git
 
 install:
   # build the normal catkin workspace
