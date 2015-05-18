@@ -1,0 +1,28 @@
+# Adapted from https://github.com/jbohren/conman
+language:
+  - cpp
+python:
+  - "2.7"
+compiler:
+  - gcc
+before_install:
+  # Define some config vars
+  - export ROS_DISTRO=hydro
+  - export CI_SOURCE_PATH=$(pwd)
+  # Bootstrap a minimal ROS installation
+  - git clone https://github.com/jhu-lcsr/ros_ci_tools /tmp/ros_ci_tools && export PATH=/tmp/ros_ci_tools:$PATH
+  - ros_ci_bootstrap
+  - source /opt/ros/$ROS_DISTRO/setup.bash
+  # Create non-isolated workspace
+  - mkdir -p ~/ws/src
+  - pushd ~/ws/src
+  - ln -s $CI_SOURCE_PATH
+
+install:
+  # build the normal catkin workspace
+  - pushd ~/ws
+  - catkin_make -j2
+script:
+  # Run tests
+  - source devel/setup.bash
+  - catkin_make 
