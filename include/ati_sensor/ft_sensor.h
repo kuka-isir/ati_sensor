@@ -23,6 +23,8 @@
 #define rt_dev_sendto sendto
 #define rt_dev_close close
 #define rt_dev_connect connect
+#define rt_dev_recv recv
+#define rt_dev_send send
 
 #else
 #include <rtnet.h>
