@@ -1,6 +1,6 @@
 <package>
   <name>ati_sensor</name>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <description>The package for FT sensors using the ATI net box.</description>
   
   <maintainer email="hoarau.robotics@gmail.com">Antoine Hoarau</maintainer>
