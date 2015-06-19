@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(ati_sensor)
 
+set(CMAKE_BUILD_TYPE Release)
 
 set(library_name ati_sensor)
 set(ros_exec_name ft_sensor)
