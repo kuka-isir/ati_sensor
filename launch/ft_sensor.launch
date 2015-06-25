@@ -1,6 +1,6 @@
 <launch>
   <arg name="ip" value="192.168.100.103"/>
-  <arg name="frame" value="/ati_ft_link"/>
+  <arg name="frame" value="/ati_link"/>
 
   <node pkg="ati_sensor" name="ft_sensor" type="ft_sensor" respawn="true" output="screen">
     <param name="ip" value="$(arg ip)" />
