@@ -16,13 +16,15 @@
 // ISIR 2015 Antoine Hoarau <hoarau.robotics@gmail.com>
 
 #include "ati_sensor/ft_sensor.h"
+
+#ifndef HAVE_RTNET
+
 // XML related libraries
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 #include <sstream>
-#include <boost/graph/graph_concepts.hpp>
 // Read elements from XML file
 static void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[],xmlChar ret[])
 {
@@ -33,17 +35,32 @@ static void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[]
   xmlChar parameter_comp[40];
   for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
     if (cur_node->type == XML_ELEMENT_NODE) {
-	 xmlStrPrintf(parameter_comp,40,cur_node->name);
-	 if(xmlStrEqual(parameter_comp, element_to_find)){
-		cur_node_temp=cur_node->children;
-		xmlStrPrintf(ret,40,cur_node_temp->content);
-		continue;
-	 }
+         xmlStrPrintf(parameter_comp,40,cur_node->name);
+         if(xmlStrEqual(parameter_comp, element_to_find)){
+                cur_node_temp=cur_node->children;
+                xmlStrPrintf(ret,40,cur_node_temp->content);
+                continue;
+         }
     }
     findElementRecusive(cur_node->children,element_to_find,ret);
   }
   return;
 }
+#endif
+
+template<typename T>
+static T getNumberInXml(const std::string& xml_s,const std::string& tag)
+{
+    const std::string tag_open = "<"+tag+">";
+    const std::string tag_close = "</"+tag+">";
+    const std::size_t n_start = xml_s.find(tag_open);
+    const std::size_t n_end = xml_s.find(tag_close);
+    const std::string num = xml_s.substr(n_start+tag_open.length(),n_end);
+    double r = ::atof(num.c_str());
+    return static_cast<T>(r);
+}
+
+
 using namespace ati;
 
 FTSensor::FTSensor()
@@ -124,8 +141,7 @@ bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
         std::cerr << "\033[1;31mCould not get response\033[0m" << std::endl;
       // Parse Calibration from web server
     if(initialized_)
-        if (!getCalibrationData())
-            std::cerr << "Using default calibration parameters" << std::endl;
+        getCalibrationData();
   }else
     initialized_ = false;
   
@@ -191,9 +207,6 @@ int FTSensor::closeSocket(const int& handle)
 }
 bool FTSensor::getCalibrationData()
 {
-    // parse the configuration 
-  xmlNode *root_element = NULL;
-  
   std::string index("");
   if(calibration_index != ati::current_calibration)
   {
@@ -203,10 +216,35 @@ bool FTSensor::getCalibrationData()
     std::cout << "Using calibration index "<<calibration_index<< std::endl;
   }else
       std::cout << "Using current calibration" << std::endl;
-  #ifndef HAVE_RTNET
+  
+#ifndef HAVE_RTNET
+  xmlNode *root_element = NULL;
   std::string filename = "http://"+getIP()+"/netftapi2.xml"+index;
 
   xmlDocPtr doc = xmlReadFile(filename.c_str(), NULL, 0);
+  if (doc != NULL)
+  {
+      root_element = xmlDocGetRootElement(doc);
+      
+      xmlChar cfgcpf[40];
+      findElementRecusive(root_element,xmlCharStrdup("cfgcpf"),cfgcpf);
+      std::stringstream cfgcpf_ss;
+      cfgcpf_ss << cfgcpf;
+      resp_.cpf = static_cast<uint32_t>(atoi(cfgcpf_ss.str().c_str()));
+      
+      xmlChar cfgcpt[40];
+      findElementRecusive(root_element,xmlCharStrdup("cfgcpt"),cfgcpt);
+      std::stringstream cfgcpt_ss;
+      cfgcpt_ss << cfgcpt;
+      resp_.cpt = static_cast<uint32_t>(atoi(cfgcpt_ss.str().c_str()));
+      
+      std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
+      std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
+      xmlFreeDoc(doc);
+      xmlCleanupParser();
+      return true;
+  }
+  xmlCleanupParser();
 #else
     static const uint32_t chunkSize = 4;        // Every chunk of data will be of this size
     static const uint32_t maxSize = 65536;      // The maximum file size to receive
@@ -229,38 +267,23 @@ bool FTSensor::getCalibrationData()
                 break;
     }
     xml_s_ = xml_c_;
-    std::size_t n = xml_s_.find("<?xml");
-    if(n != std::string::npos)
-        xml_s_ = xml_s_.substr(n);
 
-    xmlDocPtr doc = xmlReadMemory(xml_s_.c_str(),xml_s_.length(),"noname.xml",NULL, 0);//xmlReadFile(xml_s_.c_str(),NULL,0);
+    const uint32_t cfgcpf_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpf");
+    const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
+    
+    if(cfgcpf_r && cfgcpt_r)
+    {
+        resp_.cpf = cfgcpf_r;
+        resp_.cpt = cfgcpt_r;
+        std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
+        std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
+        return true;
+    }
 #endif
-  if (doc != NULL)
-  {
-      root_element = xmlDocGetRootElement(doc);
-      
-      xmlChar cfgcpf[40];
-      findElementRecusive(root_element,xmlCharStrdup("cfgcpf"),cfgcpf);
-      std::stringstream cfgcpf_ss;
-      cfgcpf_ss << cfgcpf;
-      resp_.cpf = static_cast<uint32_t>(atoi(cfgcpf_ss.str().c_str()));
-      
-      xmlChar cfgcpt[40];
-      findElementRecusive(root_element,xmlCharStrdup("cfgcpt"),cfgcpt);
-      std::stringstream cfgcpt_ss;
-      cfgcpt_ss << cfgcpt;
-      resp_.cpt = static_cast<uint32_t>(atoi(cfgcpt_ss.str().c_str()));
-      
-      std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
-      std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
-      xmlFreeDoc(doc);
-  }else{
-    std::cerr << "Could not parse file " << filename<<std::endl;
-    std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
-    std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
-  }
-  xmlCleanupParser();
-  return true;
+  std::cerr << "Could not parse file " << filename<<std::endl;
+  std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
+  std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
+  return false;
 }
 
 bool FTSensor::sendCommand()

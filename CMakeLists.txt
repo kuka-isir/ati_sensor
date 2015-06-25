@@ -16,14 +16,11 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
-message(STATUS "MODULES PATH : ${CMAKE_MODULE_PATH}")
-find_package(LibXml2 REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
 ###################################
 catkin_package(CATKIN_DEPENDS geometry_msgs std_msgs
-    DEPENDS ${LIBXML2_LIBRARIES}
     INCLUDE_DIRS include
     LIBRARIES ${library_name}
 )
@@ -33,7 +30,6 @@ catkin_package(CATKIN_DEPENDS geometry_msgs std_msgs
 ###########
 
 include_directories(include 
-    ${LIBXML2_INCLUDE_DIR}
     ${catkin_INCLUDE_DIRS}
 )
 
@@ -49,10 +45,13 @@ if($ENV{OROCOS_TARGET} STREQUAL "xenomai" )
   find_package(RTnet REQUIRED)
   include_directories(${Xenomai_INCLUDE_DIR} ${RTNET_INCLUDE_DIRS})
   set_property(TARGET ${library_name} APPEND PROPERTY COMPILE_DEFINITIONS HAVE_RTNET XENOMAI)
-  target_link_libraries(${library_name} ${LIBXML2_LIBRARIES} ${Xenomai_RTDM_LIBRARIES})
-else() 
-  target_link_libraries(${library_name} ${LIBXML2_LIBRARIES})
+else()
+  find_package(LibXml2 REQUIRED)
+  include_directories(${LIBXML2_INCLUDE_DIR})
 endif()
+
+target_link_libraries(${library_name} ${LIBXML2_LIBRARIES} ${Xenomai_RTDM_LIBRARIES})
+
 
 #### ROS wrapper
 
