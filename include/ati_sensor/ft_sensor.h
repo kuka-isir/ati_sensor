@@ -71,7 +71,8 @@ public:
   ~FTSensor();
   
   // Initialization, reading parameters from XML files, etc..
-  bool init(std::string ip, int calibration_index = ati::current_calibration, uint16_t cmd = ati::command_s::REALTIME);
+  bool init(std::string ip, int calibration_index = ati::current_calibration,
+            uint16_t cmd = ati::command_s::REALTIME, int sample_count = -1);
   
   // GET functions
   // Read parameters
@@ -122,6 +123,7 @@ protected:
   bool setSoftwareBias();
   bool stopStreaming();
   bool startStreaming();
+  bool startStreaming(int nb_samples);
   bool openSockets();
   void openSocket(int& handle, const std::string ip, const uint16_t port, const int option);
   bool closeSockets();

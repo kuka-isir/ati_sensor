@@ -87,6 +87,33 @@ FTSensor::~FTSensor()
   if( 0 == closeSockets())
       std::cout << "Sensor shutdown sucessfully" << std::endl;
 }
+
+bool FTSensor::startStreaming(int nb_samples)
+{
+  if (nb_samples < 0) {
+    // use default sample_count
+    return startStreaming();
+  }
+  else {
+    // use given sample count
+    uint32_t sample_count = static_cast<uint32_t>(nb_samples);
+      switch(cmd_.command){
+        case command_s::REALTIME:
+    //std::cout << "Starting realtime streaming" << std::endl;
+    return startRealTimeStreaming(sample_count);
+        case command_s::BUFFERED:
+    //std::cout << "Starting buffered streaming" << std::endl;
+    return startBufferedStreaming(sample_count);
+        case command_s::MULTIUNIT:
+    //std::cout << "Starting multi-unit streaming" << std::endl;
+    return startMultiUnitStreaming(sample_count);
+        default:
+    std::cout <<cmd_.command<< ": command mode not allowed"<< std::endl;
+    return false;
+      }
+  }
+}
+
 // Initialization read from XML file
 bool FTSensor::startStreaming()
 {
@@ -106,7 +133,7 @@ bool FTSensor::startStreaming()
     }
 }
 
-bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
+bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sample_count)
 {
   //  Re-Initialize parameters
   initialized_ = true;
@@ -131,7 +158,7 @@ bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
         std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
     setCommand(cmd); // Setting cmd mode
     
-    initialized_ &= startStreaming();                        // Starting streaming
+    initialized_ &= startStreaming(sample_count);            // Starting streaming
     
     if (!initialized_)
         std::cerr << "\033[1;31mCould not start streaming\033[0m" << std::endl;
@@ -404,8 +431,9 @@ bool FTSensor::getResponse()
 void FTSensor::doComm()
 {
     if (isInitialized()) {
-        if(!sendCommand())
-            std::cerr << "Error while sending command" << std::endl;
+        if(cmd_.sample_count != 0) //do not repeat send if infinite samples
+            if(!sendCommand())
+                std::cerr << "Error while sending command" << std::endl;
         if(!getResponse())
             std::cerr << "Error while getting response, command:" <<cmd_.command <<std::endl;
     }
