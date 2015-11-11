@@ -237,11 +237,26 @@ bool FTSensor::getCalibrationData()
       std::stringstream cfgcpt_ss;
       cfgcpt_ss << cfgcpt;
       resp_.cpt = static_cast<uint32_t>(atoi(cfgcpt_ss.str().c_str()));
-      
+            
       std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
       std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
+      
+      // Read the RDT Output rate
+      xmlChar cfgcomrdtrate[40];
+      findElementRecusive(root_element,xmlCharStrdup("comrdtrate"),cfgcomrdtrate);
+      std::stringstream cfgcomrdtrate_ss;
+      cfgcomrdtrate_ss << cfgcomrdtrate;
+      int cfgcomrdtrateval = 1;
+      cfgcomrdtrate_ss >> cfgcomrdtrateval;
+      
       xmlFreeDoc(doc);
       xmlCleanupParser();
+      
+      if (cfgcomrdtrateval != 1)
+      {
+          std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrateval << \
+          " Hz. Any application reading rate lower than or equal to "<< cfgcomrdtrateval << " Hz will produce a lag in the data.\033[0m"<<std::endl;
+      }        
       return true;
   }
   xmlCleanupParser();
@@ -270,6 +285,13 @@ bool FTSensor::getCalibrationData()
 
     const uint32_t cfgcpf_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpf");
     const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
+    const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
+    
+    if (cfgcomrdtrate != 1)
+    {
+        std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrate << \
+        " Hz. Any application reading rate lower than or equal to "<< cfgcomrdtrate << " Hz will produce a lag in the data.\033[0m"<<std::endl;
+    }
     
     if(cfgcpf_r && cfgcpt_r)
     {
