@@ -39,8 +39,8 @@ add_library(${library_name}
     src/ft_sensor.cpp
 )
 
-
-if($ENV{OROCOS_TARGET} STREQUAL "xenomai" )
+# Allows to build for Xenomai + RTnet
+if($ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} STREQUAL "xenomai" )
   find_package(Xenomai REQUIRED)
   find_package(RTnet REQUIRED)
   include_directories(${Xenomai_INCLUDE_DIR} ${RTNET_INCLUDE_DIRS})
