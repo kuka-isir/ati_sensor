@@ -75,6 +75,7 @@ FTSensor::FTSensor()
     socketHandle_               = -1;
     resp_.cpf                   = 1000000;
     resp_.cpt                   = 1000000;
+    rdt_rate_                   = 0;
     timeval_.tv_sec             = 2;
     timeval_.tv_usec            = 0;
     xml_s_.reserve(MAX_XML_SIZE);
@@ -246,16 +247,15 @@ bool FTSensor::getCalibrationData()
       findElementRecusive(root_element,xmlCharStrdup("comrdtrate"),cfgcomrdtrate);
       std::stringstream cfgcomrdtrate_ss;
       cfgcomrdtrate_ss << cfgcomrdtrate;
-      int cfgcomrdtrateval = 1;
-      cfgcomrdtrate_ss >> cfgcomrdtrateval;
+      cfgcomrdtrate_ss >> rdt_rate_;
       
       xmlFreeDoc(doc);
       xmlCleanupParser();
       
-      if (cfgcomrdtrateval != 1)
+      if (rdt_rate_ != 1)
       {
-          std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrateval << \
-          " Hz. Any application reading rate lower than or equal to "<< cfgcomrdtrateval << " Hz will produce a lag in the data.\033[0m"<<std::endl;
+          std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< rdt_rate_ << \
+          " Hz. Any application reading rate lower than or equal to "<< rdt_rate_ << " Hz will produce a lag in the data.\033[0m"<<std::endl;
       }        
       return true;
   }
@@ -286,7 +286,7 @@ bool FTSensor::getCalibrationData()
     const uint32_t cfgcpf_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpf");
     const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
     const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
-    
+    rdt_rate_ = cfgcomrdtrate;
     if (cfgcomrdtrate != 1)
     {
         std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrate << \
@@ -306,6 +306,68 @@ bool FTSensor::getCalibrationData()
   std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
   std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
   return false;
+}
+
+bool FTSensor::setRDTOutputRate(unsigned int rate)
+{
+  if (rate > 0 && rate <= 7000)
+  {
+    std::stringstream cfgcomrdtrate_ss;
+    cfgcomrdtrate_ss << rate;
+    std::string host = getIP(); 
+    std::string filename = "/comm.cgi?comrdtrate=" + cfgcomrdtrate_ss.str();
+    
+    static const uint32_t chunkSize = 4;        // Every chunk of data will be of this size
+    static const uint32_t maxSize = 65536;      // The maximum file size to receive
+
+    std::string request_s = "GET "+filename+" HTTP/1.0\r\nHost: "+host+"\r\n\r\n";
+
+    if (rt_dev_send(socketHTTPHandle_, request_s.c_str(),request_s.length(), 0) < 0)
+    {
+#ifndef HAVE_RTNET
+        std::cerr << "Could not send GET request to "<<host<<":80."<<std::endl;
+#else
+        std::cerr << "Could not send GET request to "<<host<<":80. Please make sure that RTnet TCP protocol is installed"<<std::endl;
+#endif
+        return false;
+    }
+    
+    //empty the buffer but we don't care about the result
+    int recvLength=0;
+    int posBuff = 0;
+    while(posBuff < maxSize) // Just a security to avoid infinity loop
+    {
+        recvLength = rt_dev_recv(socketHTTPHandle_, &xml_c_[posBuff],chunkSize, 0);
+        posBuff += recvLength;
+        if(recvLength <= 0) // The last chunk returns 0
+            break;
+    }
+    if (posBuff > 4)
+    {
+        const char *awaited_response = "HTTP/1.0 302 Found";
+        if (strncmp(xml_c_, awaited_response, 18 )==0)
+        {
+            // we consider the rate was set and don't read it back
+            rdt_rate_ = rate;
+            return true;
+        }
+        else
+        {
+            std::cerr << "Bad response from comrdtrate set command " << std::endl;
+            return false;
+        }
+    }
+    else
+    {
+        std::cerr << "Bad response from comrdtrate set command " << std::endl;
+        return false;
+    }
+  }
+  else
+  {
+      std::cerr << "RDT rate must be in range [1-7000]" << std::endl;
+      return false;
+  }
 }
 
 bool FTSensor::sendCommand()

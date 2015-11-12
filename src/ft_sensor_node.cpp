@@ -58,8 +58,9 @@ class FTSensorPublisher
       ftsensor_->init(ip_);
       // Set bias
       ftsensor_->setBias();
-
       
+      ROS_INFO_STREAM("ATISensor RDT Rate : "<< ftsensor_->getRDTRate());
+
       // Advertise topic where readings are published
       pub_sensor_readings_ = priv_nh_.advertise<geometry_msgs::WrenchStamped>("data", 10);
       
