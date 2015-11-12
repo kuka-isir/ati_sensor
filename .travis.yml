@@ -1,36 +1,41 @@
-# Adapted from https://github.com/jbohren/conman
-language:
-  - cpp
-python:
-  - "2.7"
-
 sudo: required
-
+dist: trusty
+# Force travis to use its minimal image with default Python settings
+language: generic
 compiler:
   - gcc
-before_install:
-  # Define some config vars
-  - export ROS_DISTRO=hydro
-  - export CI_SOURCE_PATH=$(pwd)
-  # Bootstrap a minimal ROS installation
-  - sudo sh -c "echo 'deb http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main' > /etc/apt/sources.list.d/ros-latest.list"
-  - wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
-  - sudo apt-get update
-  - sudo apt-get install ros-$ROS_DISTRO-desktop-full
-  - source /opt/ros/$ROS_DISTRO/setup.bash
-  - sudo -E rosdep init
-  - rosdep update
-  - mkdir -p ~/catkin_ws/src
-  - cd ~/catkin_ws/src
-  - catkin_init_workspace
-  - ln -s $CI_SOURCE_PATH
-  - git clone https://github.com/ros/cmake_modules.git
+env:
+  global:
+    - CATKIN_WS=~/catkin_ws
+    - CATKIN_WS_SRC=${CATKIN_WS}/src
+  matrix:
+    - CI_ROS_DISTRO="indigo"
+    - CI_ROS_DISTRO="jade"
+
+matrix:
+  allow_failures:
+    - env: CI_ROS_DISTRO="jade"
 
 install:
-  # build the normal catkin workspace
-  - cd ~/catkin_ws/
-  - catkin_make -j2
+  - sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros-latest.list'
+  - wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq -y python-rosdep python-catkin-tools
+  - sudo rosdep init
+  - rosdep update
+  # Use rosdep to install all dependencies (including ROS itself)
+  - rosdep install --from-paths ./ -i -y --rosdistro $CI_ROS_DISTRO
 script:
+  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
+  - mkdir -p $CATKIN_WS_SRC
+  - ln -s $TRAVIS_BUILD_DIR $CATKIN_WS_SRC
+  - cd $CATKIN_WS
+  - catkin init
+  # Enable install space
+  #- catkin config --install
+  # Build [and Install] packages
+  - catkin build --limit-status-rate 0.1 --no-notify -DCMAKE_BUILD_TYPE=Release
+  # Build tests
+  #- catkin build --limit-status-rate 0.1 --no-notify --make-args tests
   # Run tests
-  - source devel/setup.bash
-  - catkin_make
+  #- catkin run_tests
