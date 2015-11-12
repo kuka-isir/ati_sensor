@@ -295,7 +295,7 @@ bool FTSensor::sendCommand(uint16_t cmd)
 {
   *reinterpret_cast<uint16_t*>(&request_[0]) = htons(command_s::command_header);
   *reinterpret_cast<uint16_t*>(&request_[2]) = htons(cmd); 
-  *reinterpret_cast<uint16_t*>(&request_[4]) = htonl(cmd_.sample_count);
+  *reinterpret_cast<uint32_t*>(&request_[4]) = htonl(cmd_.sample_count);
   //return rt_dev_sendto(socketHandle_, (void*) &request_, sizeof(request_), 0, (sockaddr*) &addr_, addr_len_ ) == 8;
   return rt_dev_send(socketHandle_, (void*) &request_, sizeof(request_), 0) == sizeof(request_);//, (sockaddr*) &addr_, addr_len_ ) == 8;
 }
