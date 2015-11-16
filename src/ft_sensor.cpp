@@ -278,12 +278,7 @@ bool FTSensor::getCalibrationData()
       
       xmlFreeDoc(doc);
       xmlCleanupParser();
-      
-      if (rdt_rate_ != 1)
-      {
-          std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< rdt_rate_ << \
-          " Hz. Any application reading rate lower than or equal to "<< rdt_rate_ << " Hz will produce a lag in the data.\033[0m"<<std::endl;
-      }        
+              
       return true;
   }
   xmlCleanupParser();
@@ -314,11 +309,6 @@ bool FTSensor::getCalibrationData()
     const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
     const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
     rdt_rate_ = cfgcomrdtrate;
-    if (cfgcomrdtrate != 1)
-    {
-        std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrate << \
-        " Hz. Any application reading rate lower than or equal to "<< cfgcomrdtrate << " Hz will produce a lag in the data.\033[0m"<<std::endl;
-    }
     
     if(cfgcpf_r && cfgcpt_r)
     {
@@ -425,7 +415,13 @@ bool FTSensor::getResponse()
   resp_.Tx = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 3 * 4])));
   resp_.Ty = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 4 * 4])));
   resp_.Tz = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 5 * 4])));
-  return response_ret_==sizeof(response_);
+  if (response_ret_ < 0)
+  {
+    std::cerr << "Error while receiving: " << strerror(errno) << std::endl;
+  }
+  if (response_ret_!=RDT_RECORD_SIZE)
+    std::cerr << "Error of package size " <<response_ret_ << " but should be "<< RDT_RECORD_SIZE <<std::endl;
+  return response_ret_==RDT_RECORD_SIZE;
 }
 
 void FTSensor::doComm()
@@ -518,6 +514,7 @@ bool FTSensor::startRealTimeStreaming(uint32_t sample_count)
     std::cerr << "Could not start realtime streaming" << std::endl;
     return false;
   }
+  std::cout << "Start realtime streaming with " << sample_count <<" samples " << std::endl;
   return true;
 }
 
