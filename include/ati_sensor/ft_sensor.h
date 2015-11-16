@@ -106,11 +106,13 @@ public:
   // Write the ip of the sensor
   const std::string getIP(){return this->ip;}
   const uint16_t getPort(){return this->port;}
+  const int getRDTRate(){return this->rdt_rate_;}
   // Set the zero of the sensor	
   void setBias();
   void setTimeout(float sec);
   bool isInitialized();
   bool getCalibrationData();
+  bool setRDTOutputRate(unsigned int rate);
 protected:
   // Socket info
   bool startRealTimeStreaming(uint32_t sample_count=1);
@@ -133,6 +135,7 @@ protected:
   std::string ip;
   uint16_t port;
   int calibration_index;
+  int rdt_rate_;
   int socketHandle_;
   int socketHTTPHandle_;  
   struct sockaddr_in addr_; 
