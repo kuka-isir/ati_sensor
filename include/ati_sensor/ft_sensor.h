@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <stdint.h>
@@ -32,6 +33,7 @@
 #endif
 
 #define MAX_XML_SIZE 35535
+#define RDT_RECORD_SIZE 36
 
 namespace ati{
 static const std::string default_ip = "192.168.100.103";
@@ -71,7 +73,8 @@ public:
   ~FTSensor();
   
   // Initialization, reading parameters from XML files, etc..
-  bool init(std::string ip, int calibration_index = ati::current_calibration, uint16_t cmd = ati::command_s::REALTIME);
+  bool init(std::string ip, int calibration_index = ati::current_calibration,
+            uint16_t cmd = ati::command_s::REALTIME, int sample_count = -1);
   
   // GET functions
   // Read parameters
@@ -122,6 +125,7 @@ protected:
   bool setSoftwareBias();
   bool stopStreaming();
   bool startStreaming();
+  bool startStreaming(int nb_samples);
   bool openSockets();
   void openSocket(int& handle, const std::string ip, const uint16_t port, const int option);
   bool closeSockets();
@@ -146,7 +150,7 @@ protected:
   response_s resp_;
   command_s cmd_;
   unsigned char request_[8];    
-  unsigned char response_[36];
+  unsigned char response_[RDT_RECORD_SIZE];
   bool initialized_;
   bool timeout_set_;
   struct timeval timeval_;

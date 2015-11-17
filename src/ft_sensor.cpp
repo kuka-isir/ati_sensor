@@ -87,6 +87,33 @@ FTSensor::~FTSensor()
   if( 0 == closeSockets())
       std::cout << "Sensor shutdown sucessfully" << std::endl;
 }
+
+bool FTSensor::startStreaming(int nb_samples)
+{
+  if (nb_samples < 0) {
+    // use default sample_count
+    return startStreaming();
+  }
+  else {
+    // use given sample count
+    uint32_t sample_count = static_cast<uint32_t>(nb_samples);
+      switch(cmd_.command){
+        case command_s::REALTIME:
+    //std::cout << "Starting realtime streaming" << std::endl;
+    return startRealTimeStreaming(sample_count);
+        case command_s::BUFFERED:
+    //std::cout << "Starting buffered streaming" << std::endl;
+    return startBufferedStreaming(sample_count);
+        case command_s::MULTIUNIT:
+    //std::cout << "Starting multi-unit streaming" << std::endl;
+    return startMultiUnitStreaming(sample_count);
+        default:
+    std::cout <<cmd_.command<< ": command mode not allowed"<< std::endl;
+    return false;
+      }
+  }
+}
+
 // Initialization read from XML file
 bool FTSensor::startStreaming()
 {
@@ -106,7 +133,7 @@ bool FTSensor::startStreaming()
     }
 }
 
-bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
+bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sample_count)
 {
   //  Re-Initialize parameters
   initialized_ = true;
@@ -131,7 +158,7 @@ bool FTSensor::init(std::string ip,int calibration_index,uint16_t cmd)
         std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
     setCommand(cmd); // Setting cmd mode
     
-    initialized_ &= startStreaming();                        // Starting streaming
+    initialized_ &= startStreaming(sample_count);            // Starting streaming
     
     if (!initialized_)
         std::cerr << "\033[1;31mCould not start streaming\033[0m" << std::endl;
@@ -251,12 +278,7 @@ bool FTSensor::getCalibrationData()
       
       xmlFreeDoc(doc);
       xmlCleanupParser();
-      
-      if (rdt_rate_ != 1)
-      {
-          std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< rdt_rate_ << \
-          " Hz. Any application reading rate lower than or equal to "<< rdt_rate_ << " Hz will produce a lag in the data.\033[0m"<<std::endl;
-      }        
+              
       return true;
   }
   xmlCleanupParser();
@@ -287,11 +309,6 @@ bool FTSensor::getCalibrationData()
     const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
     const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
     rdt_rate_ = cfgcomrdtrate;
-    if (cfgcomrdtrate != 1)
-    {
-        std::cout << "\033[1;33m[WARNING] The RDT output rate of the sensor is not 1 Hz but "<< cfgcomrdtrate << \
-        " Hz. Any application reading rate lower than or equal to "<< cfgcomrdtrate << " Hz will produce a lag in the data.\033[0m"<<std::endl;
-    }
     
     if(cfgcpf_r && cfgcpt_r)
     {
@@ -398,14 +415,21 @@ bool FTSensor::getResponse()
   resp_.Tx = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 3 * 4])));
   resp_.Ty = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 4 * 4])));
   resp_.Tz = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 5 * 4])));
-  return response_ret_==sizeof(response_);
+  if (response_ret_ < 0)
+  {
+    std::cerr << "Error while receiving: " << strerror(errno) << std::endl;
+  }
+  if (response_ret_!=RDT_RECORD_SIZE)
+    std::cerr << "Error of package size " <<response_ret_ << " but should be "<< RDT_RECORD_SIZE <<std::endl;
+  return response_ret_==RDT_RECORD_SIZE;
 }
 
 void FTSensor::doComm()
 {
     if (isInitialized()) {
-        if(!sendCommand())
-            std::cerr << "Error while sending command" << std::endl;
+        if(cmd_.sample_count != 0) //do not repeat send if infinite samples
+            if(!sendCommand())
+                std::cerr << "Error while sending command" << std::endl;
         if(!getResponse())
             std::cerr << "Error while getting response, command:" <<cmd_.command <<std::endl;
     }
@@ -490,6 +514,7 @@ bool FTSensor::startRealTimeStreaming(uint32_t sample_count)
     std::cerr << "Could not start realtime streaming" << std::endl;
     return false;
   }
+  std::cout << "Start realtime streaming with " << sample_count <<" samples " << std::endl;
   return true;
 }
 
