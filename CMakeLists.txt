@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 set(library_name ati_sensor)
 set(ros_exec_name ft_sensor)
-set(standalone_exec_name standalone_test)
+set(standalone_exec_name ati_sensor_standalone_test)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
