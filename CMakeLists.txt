@@ -7,8 +7,8 @@ set(library_name ati_sensor)
 set(ros_exec_name ft_sensor)
 set(standalone_exec_name ati_sensor_standalone_test)
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
+find_package(catkin REQUIRED COMPONENTS 
+  roscpp 
   std_srvs
   std_msgs
   geometry_msgs
@@ -83,9 +83,17 @@ install(TARGETS ${library_name} ${standalone_exec_name}
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+        
+install(TARGETS ${ros_exec_name}
+        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+              
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
+  )
+
+install(DIRECTORY launch 
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )
