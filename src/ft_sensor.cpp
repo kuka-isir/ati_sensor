@@ -344,27 +344,28 @@ bool FTSensor::getCalibrationData()
   return false;
 }
 
-bool FTSensor::setRDTOutputRate(unsigned int rate)
+bool FTSensor::sendTCPrequest(std::string &request_cmd)
 {
-  if (rate > 0 && rate <= 7000)
+  if (request_cmd.empty() )
   {
-    std::stringstream cfgcomrdtrate_ss;
-    cfgcomrdtrate_ss << rate;
-    std::string host = getIP(); 
-    std::string filename = "/comm.cgi?comrdtrate=" + cfgcomrdtrate_ss.str();
-    
+    std::cerr << "Empty TCP command, not sending"<<std::endl;
+    return false;
+  }
+  else
+  {
     static const uint32_t chunkSize = 4;        // Every chunk of data will be of this size
     static const uint32_t maxSize = 65536;      // The maximum file size to receive
+    std::string host = getIP();
 
-    std::string request_s = "GET "+filename+" HTTP/1.0\r\nHost: "+host+"\r\n\r\n";
+    std::string request_s = "GET "+request_cmd+" HTTP/1.0\r\nHost: "+host+"\r\n\r\n";
 
     if (rt_dev_send(socketHTTPHandle_, request_s.c_str(),request_s.length(), 0) < 0)
     {
-#ifndef HAVE_RTNET
+  #ifndef HAVE_RTNET
         std::cerr << "Could not send GET request to "<<host<<":80."<<std::endl;
-#else
+  #else
         std::cerr << "Could not send GET request to "<<host<<":80. Please make sure that RTnet TCP protocol is installed"<<std::endl;
-#endif
+  #endif
         return false;
     }
     
@@ -383,27 +384,96 @@ bool FTSensor::setRDTOutputRate(unsigned int rate)
         const char *awaited_response = "HTTP/1.0 302 Found";
         if (strncmp(xml_c_, awaited_response, 18 )==0)
         {
-            // we consider the rate was set and don't read it back
-            rdt_rate_ = rate;
             return true;
         }
         else
         {
-            std::cerr << "Bad response from comrdtrate set command " << std::endl;
+            std::cerr << "Bad response from set command. Response is :" <<  xml_c_ << std::endl;
             return false;
         }
     }
     else
     {
-        std::cerr << "Bad response from comrdtrate set command " << std::endl;
+        std::cerr << "Bad response from set command. Response is :" <<  xml_c_  << std::endl;
         return false;
     }
+  }
+}
+
+
+bool FTSensor::setRDTOutputRate(unsigned int rate)
+{
+  if (rate > 0 && rate <= 7000)
+  {
+      std::stringstream cfgcomrdtrate_ss;
+      cfgcomrdtrate_ss << rate;
+      std::string cmd = "/comm.cgi?comrdtrate=" + cfgcomrdtrate_ss.str();
+      
+      if(sendTCPrequest(cmd))
+      { 
+          // we consider the rate was set and don't read it back
+          rdt_rate_ = rate;
+          return true;
+      }
+      else
+          return false;
   }
   else
   {
       std::cerr << "RDT rate must be in range [1-7000]" << std::endl;
       return false;
   }
+}
+
+
+bool FTSensor::setGaugeBias(unsigned int gauge_idx, int gauge_bias)
+{
+  std::map<unsigned int, int> map;
+  map[gauge_idx] = gauge_bias;
+  return setGaugeBias(map);
+}
+
+bool FTSensor::setGaugeBias(std::vector<int> &gauge_vect)
+{
+  std::map<unsigned int, int> map;
+  for (size_t i=0; i < gauge_vect.size(); ++i)
+  {
+    map[i] = gauge_vect[i];
+  }
+  return setGaugeBias(map);
+}
+
+bool FTSensor::setGaugeBias(std::map<unsigned int, int> &gauge_map)
+{
+  std::stringstream setbias_ss;
+  std::map<unsigned int, int>::iterator it;
+  bool first_element = true;
+  //prepare the query
+  for (it=gauge_map.begin(); it!=gauge_map.end(); ++it)
+  {
+    if( it->first < 6)
+    {
+      if(first_element)
+      {
+        setbias_ss << "?";
+        first_element = false;
+      }
+      else
+      {
+        setbias_ss << "&";
+      }
+      setbias_ss << "setbias" << it->first << "=" << it->second;
+    }
+    else
+    {
+      std::cerr << "Invalid gauge number "<< it->first << std::endl;
+      return false;
+    }
+  }
+
+  std::string host = getIP(); 
+  std::string cmd = "/setting.cgi" + setbias_ss.str();
+  return sendTCPrequest(cmd);
 }
 
 bool FTSensor::sendCommand()
