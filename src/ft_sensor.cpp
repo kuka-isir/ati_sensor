@@ -147,9 +147,11 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
   if(!ip.empty() && openSockets())
   {
 #ifndef HAVE_RTNET
+	std::cout << "Initializing ft sensor (gnulinux) "<< std::endl;
         if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
             std::cerr << "Error setting timeout" << std::endl;
 #else
+	std::cout << "Initializing ft sensor (xenomai + rtnet)"<< std::endl;
         nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
         if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
             std::cerr << "Error setting timeout" << std::endl;

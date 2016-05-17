@@ -7,10 +7,10 @@ set(library_name ati_sensor)
 set(ros_exec_name ft_sensor)
 set(standalone_exec_name standalone_test)
 
-find_package(catkin REQUIRED COMPONENTS 
-  roscpp 
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
   std_srvs
-  std_msgs 
+  std_msgs
   geometry_msgs
   cmake_modules
 )
@@ -29,7 +29,7 @@ catkin_package(CATKIN_DEPENDS geometry_msgs std_msgs
 ## Build ##
 ###########
 
-include_directories(include 
+include_directories(include
     ${catkin_INCLUDE_DIRS}
 )
 
@@ -40,11 +40,12 @@ add_library(${library_name}
 )
 
 # Allows to build for Xenomai + RTnet
-if($ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} STREQUAL "xenomai" )
-  find_package(Xenomai REQUIRED)
+find_package(Xenomai)
+if(${Xenomai_FOUND})
   find_package(RTnet REQUIRED)
   include_directories(${Xenomai_INCLUDE_DIR} ${RTNET_INCLUDE_DIRS})
   set_property(TARGET ${library_name} APPEND PROPERTY COMPILE_DEFINITIONS HAVE_RTNET XENOMAI)
+  message(Info "Building ATI FT/Sensor with Xenomai + RTNET")
 else()
   find_package(LibXml2 REQUIRED)
   include_directories(${LIBXML2_INCLUDE_DIR})
@@ -55,7 +56,7 @@ target_link_libraries(${library_name} ${LIBXML2_LIBRARIES} ${Xenomai_RTDM_LIBRAR
 
 #### ROS wrapper
 
-add_executable(${ros_exec_name} 
+add_executable(${ros_exec_name}
   src/ft_sensor_node.cpp
 )
 target_link_libraries(${ros_exec_name}
@@ -82,7 +83,7 @@ install(TARGETS ${library_name} ${standalone_exec_name}
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
-        
+
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
