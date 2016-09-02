@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   std_msgs
   geometry_msgs
-  cmake_modules
 )
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
