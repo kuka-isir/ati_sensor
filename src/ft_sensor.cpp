@@ -26,7 +26,7 @@
 #include <libxml/xmlwriter.h>
 #include <sstream>
 // Read elements from XML file
-static void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[],xmlChar ret[])
+static void findElementRecusive(xmlNode * a_node,const xmlChar * element_to_find,xmlChar *  ret)
 {
   xmlNode *cur_node = NULL;
   xmlNode *cur_node_temp = NULL;
@@ -35,10 +35,10 @@ static void findElementRecusive(xmlNode * a_node,const xmlChar element_to_find[]
   xmlChar parameter_comp[40];
   for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
     if (cur_node->type == XML_ELEMENT_NODE) {
-         xmlStrPrintf(parameter_comp,40,cur_node->name);
+         xmlStrPrintf(parameter_comp,40,reinterpret_cast<const char *>(cur_node->name));
          if(xmlStrEqual(parameter_comp, element_to_find)){
                 cur_node_temp=cur_node->children;
-                xmlStrPrintf(ret,40,cur_node_temp->content);
+                xmlStrPrintf(ret,40,reinterpret_cast<const char *>(cur_node_temp->content));
                 continue;
          }
     }
