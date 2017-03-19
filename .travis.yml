@@ -11,7 +11,6 @@ env:
     - ROS_DISTRO="kinetic"
 
 install:
-  - sudo apt install -qq -y libxml2-dev
   - git clone https://github.com/ros-industrial/industrial_ci.git .ci_config
 script:
   - source .ci_config/travis.sh
