@@ -26,19 +26,19 @@
 #include <libxml/xmlwriter.h>
 #include <sstream>
 // Read elements from XML file
-static void findElementRecusive(xmlNode * a_node,const xmlChar * element_to_find,xmlChar *  ret)
+static void findElementRecusive(xmlNode * a_node,const std::string element_to_find,std::string&  ret)
 {
   xmlNode *cur_node = NULL;
   xmlNode *cur_node_temp = NULL;
-  int i=0;
-  //xmlChar parameter_text[40];
-  xmlChar parameter_comp[40];
+  
+  //xmlChar parameter_comp[40];
   for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
     if (cur_node->type == XML_ELEMENT_NODE) {
-         xmlStrPrintf(parameter_comp,40,reinterpret_cast<const xmlChar *>(cur_node->name));
-         if(xmlStrEqual(parameter_comp, element_to_find)){
+         std::string parameter_comp(reinterpret_cast<const char*>(cur_node->name));
+
+         if(parameter_comp == element_to_find){
                 cur_node_temp=cur_node->children;
-                xmlStrPrintf(ret,40,reinterpret_cast<const xmlChar *>(cur_node_temp->content));
+                ret = std::string(reinterpret_cast<const char*>(cur_node_temp->content));
                 continue;
          }
     }
@@ -256,24 +256,21 @@ bool FTSensor::getCalibrationData()
   {
       root_element = xmlDocGetRootElement(doc);
       
-      xmlChar cfgcpf[40];
-      findElementRecusive(root_element,xmlCharStrdup("cfgcpf"),cfgcpf);
-      std::stringstream cfgcpf_ss;
-      cfgcpf_ss << cfgcpf;
-      resp_.cpf = static_cast<uint32_t>(atoi(cfgcpf_ss.str().c_str()));
+      std::string cfgcpf;
+      findElementRecusive(root_element,"cfgcpf",cfgcpf);
+      resp_.cpf = static_cast<uint32_t>(::atoi(cfgcpf.c_str()));
       
-      xmlChar cfgcpt[40];
-      findElementRecusive(root_element,xmlCharStrdup("cfgcpt"),cfgcpt);
-      std::stringstream cfgcpt_ss;
-      cfgcpt_ss << cfgcpt;
-      resp_.cpt = static_cast<uint32_t>(atoi(cfgcpt_ss.str().c_str()));
+      std::string cfgcpt;
+      findElementRecusive(root_element,"cfgcpt",cfgcpt);
+      resp_.cpt = static_cast<uint32_t>(::atoi(cfgcpt.c_str()));
             
       std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
       std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
       
       // Read the RDT Output rate
-      xmlChar cfgcomrdtrate[40];
-      findElementRecusive(root_element,xmlCharStrdup("comrdtrate"),cfgcomrdtrate);
+      //xmlChar cfgcomrdtrate[40];
+      std::string cfgcomrdtrate;
+      findElementRecusive(root_element,"comrdtrate",cfgcomrdtrate);
       std::stringstream cfgcomrdtrate_ss;
       cfgcomrdtrate_ss << cfgcomrdtrate;
       cfgcomrdtrate_ss >> rdt_rate_;
