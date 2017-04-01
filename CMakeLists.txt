@@ -40,7 +40,7 @@ add_library(${library_name}
 )
 
 # Allows to build for Xenomai + RTnet
-find_package(Xenomai)
+find_package(Xenomai QUIET)
 if(${Xenomai_FOUND})
   find_package(RTnet REQUIRED)
   include_directories(${Xenomai_INCLUDE_DIR} ${RTNET_INCLUDE_DIRS})

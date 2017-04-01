@@ -14,23 +14,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sstream>
-// Give RTnet capabilities
-#ifndef HAVE_RTNET
-
-#define rt_dev_socket socket
-#define rt_dev_setsockopt setsockopt
-#define rt_dev_bind bind
-#define rt_dev_recvfrom recvfrom
-#define rt_dev_sendto sendto
-#define rt_dev_close close
-#define rt_dev_connect connect
-#define rt_dev_recv recv
-#define rt_dev_send send
-
-#else
-#include <rtnet.h>
-#include <rtdm/rtdm.h>
-#endif
 
 #define MAX_XML_SIZE 35535
 #define RDT_RECORD_SIZE 36

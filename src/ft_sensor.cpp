@@ -25,6 +25,24 @@
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 #include <sstream>
+// Give RTnet capabilities
+#ifndef HAVE_RTNET
+
+#define rt_dev_socket socket
+#define rt_dev_setsockopt setsockopt
+#define rt_dev_bind bind
+#define rt_dev_recvfrom recvfrom
+#define rt_dev_sendto sendto
+#define rt_dev_close close
+#define rt_dev_connect connect
+#define rt_dev_recv recv
+#define rt_dev_send send
+
+#else
+#include <rtnet.h>
+#include <rtdm/rtdm.h>
+#endif
+
 // Read elements from XML file
 static void findElementRecusive(xmlNode * a_node,const std::string element_to_find,std::string&  ret)
 {
