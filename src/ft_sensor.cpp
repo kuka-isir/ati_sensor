@@ -25,6 +25,8 @@
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 #include <sstream>
+#include <vector>
+#include <string>
 
 #define rt_dev_socket socket
 #define rt_dev_setsockopt setsockopt
@@ -68,16 +70,43 @@ static void findElementRecusive(xmlNode * a_node,const std::string element_to_fi
 }
 #endif
 
-template<typename T>
-static T getNumberInXml(const std::string& xml_s,const std::string& tag)
+static std::string getStringInXml(const std::string& xml_s,const std::string& tag)
 {
     const std::string tag_open = "<"+tag+">";
     const std::string tag_close = "</"+tag+">";
     const std::size_t n_start = xml_s.find(tag_open);
     const std::size_t n_end = xml_s.find(tag_close);
-    const std::string num = xml_s.substr(n_start+tag_open.length(),n_end);
+    return xml_s.substr(n_start+tag_open.length(),n_end);
+}
+template<typename T>
+static T getNumberInXml(const std::string& xml_s,const std::string& tag)
+{
+    const std::string num = getStringInXml(xml_s,tag);
     double r = ::atof(num.c_str());
     return static_cast<T>(r);
+}
+template<typename T>
+static bool getArrayFromString(const std::string& str,const char delim,T *data,size_t len)
+{
+    size_t start = str.find_first_not_of(delim), end=start;
+    size_t idx = 0;
+    while (start != std::string::npos && idx < len){
+        end = str.find(delim, start);
+        std::string token = str.substr(start, end-start);
+        if (token.empty())
+          token = "0.0";
+        double r = ::atof(token.c_str());
+        data[idx] = static_cast<T>(r); 
+        ++idx;
+        start = str.find_first_not_of(delim, end);
+    }
+    return (idx == len);
+}
+template<typename T>
+static bool getArrayFromXml(const std::string& xml_s,const std::string& tag,const char delim,T *data,size_t len)
+{
+    const std::string str = getStringInXml(xml_s,tag);
+    return getArrayFromString<T>(str,delim,data,len);
 }
 
 
@@ -99,6 +128,7 @@ FTSensor::FTSensor()
     timeval_.tv_sec             = 2;
     timeval_.tv_usec            = 0;
     xml_s_.reserve(MAX_XML_SIZE);
+    setbias_ = new int[6];
 }
 
 FTSensor::~FTSensor()
@@ -106,6 +136,7 @@ FTSensor::~FTSensor()
   stopStreaming();
   if( 0 == closeSockets())
       std::cout << "Sensor shutdown sucessfully" << std::endl;
+  delete setbias_;
 }
 
 bool FTSensor::startStreaming(int nb_samples)
@@ -283,9 +314,23 @@ bool FTSensor::getCalibrationData()
       std::string cfgcpt;
       findElementRecusive(root_element,"cfgcpt",cfgcpt);
       resp_.cpt = static_cast<uint32_t>(::atoi(cfgcpt.c_str()));
-            
+      
+      std::string setbias;
+      findElementRecusive(root_element,"setbias",setbias);
+      // 6 tokens separated by semi-colon
+      if (!getArrayFromString<int>(setbias,';',setbias_, 6))
+      {
+        std::cerr << "Could not get gauge bias values"<<std::endl;
+      }
       std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
       std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
+      /* std::cout << "current gauge bias "<< setbias_[0] <<", "
+                                        << setbias_[1] <<", "
+                                        << setbias_[2] <<", "
+                                        << setbias_[3] <<", "
+                                        << setbias_[4] <<", "
+                                        << setbias_[5] <<", " <<std::endl;
+      */
       
       // Read the RDT Output rate
       //xmlChar cfgcomrdtrate[40];
@@ -329,6 +374,12 @@ bool FTSensor::getCalibrationData()
     const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
     rdt_rate_ = cfgcomrdtrate;
     
+    // 6 tokens separated by semi-colon
+    if (!getArrayFromXml<int>(xml_s_,"setbias",';',setbias_, 6))
+    {
+        std::cerr << "Could not get gauge bias values"<<std::endl;
+    }
+
     if(cfgcpf_r && cfgcpt_r)
     {
         resp_.cpf = cfgcpf_r;
@@ -432,6 +483,13 @@ bool FTSensor::setGaugeBias(unsigned int gauge_idx, int gauge_bias)
   map[gauge_idx] = gauge_bias;
   return setGaugeBias(map);
 }
+
+std::vector<int> FTSensor::getGaugeBias()
+{
+  std::vector<int> bias(setbias_, setbias_ + 6);
+  return bias;
+}
+
 
 bool FTSensor::setGaugeBias(std::vector<int> &gauge_vect)
 {

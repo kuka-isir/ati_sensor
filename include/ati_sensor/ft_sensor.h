@@ -101,6 +101,7 @@ public:
   bool isInitialized();
   bool getCalibrationData();
   bool setRDTOutputRate(unsigned int rate);
+  std::vector<int> getGaugeBias();
   bool setGaugeBias(unsigned int gauge_idx, int gauge_bias);
   bool setGaugeBias(std::map<unsigned int, int> &gauge_map);
   bool setGaugeBias(std::vector<int> &gauge_vect);
@@ -130,6 +131,7 @@ protected:
   uint16_t port;
   int calibration_index;
   int rdt_rate_;
+  int *setbias_;
   int socketHandle_;
   int socketHTTPHandle_;  
   struct sockaddr_in addr_; 

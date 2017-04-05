@@ -72,6 +72,13 @@ target_link_libraries(${standalone_exec_name}
   ${library_name}
 )
 
+add_executable(gauge_bias_tester
+  test/test_gauge_bias.cpp
+)
+target_link_libraries(gauge_bias_tester
+  ${library_name}
+)
+
 
 
 #############
