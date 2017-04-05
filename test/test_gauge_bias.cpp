@@ -29,7 +29,6 @@ int main(int argc, char **argv)
 
   cout << "Set bias (reset) and read gauge bias values" << endl;
   ftsensor.setBias();
-  ftsensor.getCalibrationData();
   std::vector<int> gauge_bias = ftsensor.getGaugeBias();
   if (gauge_bias.size()!=6)
   {
@@ -52,7 +51,6 @@ int main(int argc, char **argv)
   gauge_bias.at(5) = -3;
   if(ftsensor.setGaugeBias(gauge_bias))
   {
-    ftsensor.getCalibrationData();
     std::vector<int> gauge_bias_new = ftsensor.getGaugeBias();
     cout << "Gauge bias values are : " << gauge_bias_new[0] <<" (" << gauge_bias[0] <<" was set), "
                                           << gauge_bias_new[1] <<" (" << gauge_bias[1] <<" was set), "

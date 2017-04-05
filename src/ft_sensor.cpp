@@ -286,7 +286,23 @@ int FTSensor::closeSocket(const int& handle)
       return true;
   return rt_dev_close(handle);
 }
+
 bool FTSensor::getCalibrationData()
+{
+  FTSensor::settings_error_t err = getSettings();
+  if(err!=SETTINGS_REQUEST_ERROR && err!=CALIB_PARSE_ERROR)
+  {
+      std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
+      std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl; 
+  }
+  else
+  {
+      std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
+      std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
+  }
+}
+
+FTSensor::settings_error_t FTSensor::getSettings()
 {
   std::string index("");
   if(calibration_index != ati::current_calibration)
@@ -319,11 +335,9 @@ bool FTSensor::getCalibrationData()
       findElementRecusive(root_element,"setbias",setbias);
       // 6 tokens separated by semi-colon
       if (!getArrayFromString<int>(setbias,';',setbias_, 6))
-      {
-        std::cerr << "Could not get gauge bias values"<<std::endl;
+      {       
+        return GAUGE_PARSE_ERROR;
       }
-      std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
-      std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
       /* std::cout << "current gauge bias "<< setbias_[0] <<", "
                                         << setbias_[1] <<", "
                                         << setbias_[2] <<", "
@@ -343,7 +357,7 @@ bool FTSensor::getCalibrationData()
       xmlFreeDoc(doc);
       xmlCleanupParser();
               
-      return true;
+      return NO_SETTINGS_ERROR;
   }
   xmlCleanupParser();
 #else
@@ -356,7 +370,10 @@ bool FTSensor::getCalibrationData()
     std::string request_s = "GET "+filename+" HTTP/1.1\r\nHost: "+host+"\r\n\r\n";
 
     if (rt_dev_send(socketHTTPHandle_, request_s.c_str(),request_s.length(), 0) < 0)
+    {
         std::cerr << "Could not send GET request to "<<getIP()<<":80. Please make sure that RTnet TCP protocol is installed"<<std::endl;
+        return SETTINGS_REQUEST_ERROR;
+    }
     
     int recvLength=0;
     int posBuff = 0;
@@ -377,22 +394,18 @@ bool FTSensor::getCalibrationData()
     // 6 tokens separated by semi-colon
     if (!getArrayFromXml<int>(xml_s_,"setbias",';',setbias_, 6))
     {
-        std::cerr << "Could not get gauge bias values"<<std::endl;
+        return GAUGE_PARSE_ERROR;
     }
 
     if(cfgcpf_r && cfgcpt_r)
     {
         resp_.cpf = cfgcpf_r;
         resp_.cpt = cfgcpt_r;
-        std::cout << "Sucessfully retrieved counts per force : "<<resp_.cpf<<std::endl;
-        std::cout << "Sucessfully retrieved counts per torque : "<<resp_.cpt<<std::endl;
-        return true;
+        return NO_SETTINGS_ERROR;
     }
 #endif
   std::cerr << "Could not parse file " << filename<<std::endl;
-  std::cerr << "Using default counts per force : "<<resp_.cpf<<std::endl;
-  std::cerr << "Using default counts per torque : "<<resp_.cpt<<std::endl;
-  return false;
+  return SETTINGS_REQUEST_ERROR;
 }
 
 bool FTSensor::sendTCPrequest(std::string &request_cmd)
@@ -486,8 +499,17 @@ bool FTSensor::setGaugeBias(unsigned int gauge_idx, int gauge_bias)
 
 std::vector<int> FTSensor::getGaugeBias()
 {
-  std::vector<int> bias(setbias_, setbias_ + 6);
-  return bias;
+  FTSensor::settings_error_t err = getSettings();
+  if(err!=SETTINGS_REQUEST_ERROR && err!=GAUGE_PARSE_ERROR)
+  {
+     std::vector<int> bias(setbias_, setbias_ + 6);
+     return bias;
+  }
+  else
+  {
+     std::cerr << "Could not get gauge bias values"<<std::endl;
+     return std::vector<int>();
+  }
 }
 
 

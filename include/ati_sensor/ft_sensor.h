@@ -57,6 +57,15 @@ public:
   FTSensor();
   ~FTSensor();
   
+  enum settings_error_t
+  {
+    NO_SETTINGS_ERROR,
+    SETTINGS_REQUEST_ERROR,
+    CALIB_PARSE_ERROR,
+    GAUGE_PARSE_ERROR,
+    RDTRATE_PARSE_ERROR
+  };
+  
   // Initialization, reading parameters from XML files, etc..
   bool init(std::string ip, int calibration_index = ati::current_calibration,
             uint16_t cmd = ati::command_s::REALTIME, int sample_count = -1);
@@ -100,6 +109,7 @@ public:
   void setTimeout(float sec);
   bool isInitialized();
   bool getCalibrationData();
+  settings_error_t getSettings();
   bool setRDTOutputRate(unsigned int rate);
   std::vector<int> getGaugeBias();
   bool setGaugeBias(unsigned int gauge_idx, int gauge_bias);
