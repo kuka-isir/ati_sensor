@@ -42,6 +42,7 @@
 // Xenomai 2 : give RTnet capabilities
 #if XENOMAI_VERSION_MAJOR == 2
     #include <rtnet.h>
+    #define RT_SO_TIMEOUT 0xFF05
 #endif
 
 // for nanosecs_rel_t
@@ -63,7 +64,7 @@
 #define rt_dev_recv         recv
 #define rt_dev_send         send
 #define rt_dev_setsockopt   setsockopt
-#define RT_SO_TIMEOUT 0xFF05
+#define RT_SO_TIMEOUT       SO_RCVTIMEO
 
 #endif
 
