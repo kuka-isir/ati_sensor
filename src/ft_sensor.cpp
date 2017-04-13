@@ -42,7 +42,6 @@
 // Xenomai 2 : give RTnet capabilities
 #if XENOMAI_VERSION_MAJOR == 2
     #include <rtnet.h>
-    #define RT_SO_TIMEOUT 0xFF05
 #endif
 
 // for nanosecs_rel_t
@@ -194,9 +193,17 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
   if(!ip.empty() && openSockets())
   {
 
+#if !defined(XENOMAI_VERSION_MAJOR) || (XENOMAI_VERSION_MAJOR == 3)
+
 	std::cout << "Initializing ft sensor"<< std::endl;
     if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, RT_SO_TIMEOUT,&timeval_,sizeof(timeval_)) < 0)
         std::cerr << "Error setting timeout" << std::endl;
+#elif XENOMAI_VERSION_MAJOR == 2
+	std::cout << "Initializing ft sensor (xenomai 2.x + rtnet)"<< std::endl;
+    nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
+    if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
+        std::cerr << "Error setting timeout" << std::endl;
+#endif
 
     if(!stopStreaming()) // if previously launched
         std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
