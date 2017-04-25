@@ -46,8 +46,10 @@
     #include <rtnet.h>
 #endif
 
+#if defined(XENOMAI_VERSION_MAJOR)
 // for nanosecs_rel_t
 #include <rtdm/rtdm.h>
+#endif
 
 // Xenomai 3 : RTnet is included
 #if XENOMAI_VERSION_MAJOR == 3
