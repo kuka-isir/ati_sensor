@@ -41,7 +41,7 @@ add_library(${library_name}
 # Allows to build for Xenomai + RTnet
 find_package(Xenomai QUIET)
 
-if(${XENOMAI_FOUND} OR $ENV{OROCOS_TARGET} EQUAL "xenomai")
+if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "xenomai"))
   add_definitions(-DXENOMAI_VERSION_MAJOR=${XENOMAI_VERSION_MAJOR})
   if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
       find_package(RTnet REQUIRED)
