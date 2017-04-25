@@ -13,7 +13,7 @@
 #
 ################################################################################
 
-include(LibFindMacros)
+set(RTNET_FOUND TRUE)
 
 # Get hint from environment variable (if any)
 if(NOT $ENV{RTNET_ROOT_DIR} STREQUAL "")
@@ -33,6 +33,6 @@ else(RTNET_ROOT_DIR)
 	find_path(RTNET_INCLUDE_DIR		NAMES ${header_NAME}			PATHS /usr/local/rtnet/include /usr/include/xenomai PATH_SUFFIXES rtnet )
 endif(RTNET_ROOT_DIR)
 
-set(RTNET_PROCESS_INCLUDES RTNET_INCLUDE_DIR)
-
-libfind_process(RTNET)
+set(RTNET_INCLUDE_DIRS ${RTNET_INCLUDE_DIR})
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(RTnet DEFAULT_MSG RTNET_INCLUDE_DIRS)
+MARK_AS_ADVANCED(RTNET_INCLUDE_DIRS)
