@@ -17,7 +17,7 @@
 
 #include "ati_sensor/ft_sensor.h"
 
-#ifndef HAVE_RTNET
+#ifndef XENOMAI_VERSION_MAJOR
 
 // XML related libraries
 #include <libxml/parser.h>
@@ -26,25 +26,51 @@
 #include <libxml/xmlwriter.h>
 #include <sstream>
 
-#define rt_dev_socket socket
-#define rt_dev_setsockopt setsockopt
-#define rt_dev_bind bind
-#define rt_dev_recvfrom recvfrom
-#define rt_dev_sendto sendto
-#define rt_dev_close close
-#define rt_dev_connect connect
-#define rt_dev_recv recv
-#define rt_dev_send send
+#define rt_dev_socket       socket
+#define rt_dev_setsockopt   setsockopt
+#define rt_dev_bind         bind
+#define rt_dev_recvfrom     recvfrom
+#define rt_dev_sendto       sendto
+#define rt_dev_close        close
+#define rt_dev_connect      connect
+#define rt_dev_recv         recv
+#define rt_dev_send         send
+#define RT_SO_TIMEOUT       SO_RCVTIMEO
 
 #else
 
-// Give RTnet capabilities
-#include <rtnet.h>
+// Xenomai 2 : give RTnet capabilities
+#if XENOMAI_VERSION_MAJOR == 2
+    #include <rtnet.h>
+#endif
+
+// for nanosecs_rel_t
 #include <rtdm/rtdm.h>
+
+// Xenomai 3 : RTnet is included
+#if XENOMAI_VERSION_MAJOR == 3
+// This is included in the cobalt core
+// Putting it here as a reminder
+#include <sys/socket.h>
+
+#define rt_dev_socket       socket
+#define rt_dev_setsockopt   setsockopt
+#define rt_dev_bind         bind
+#define rt_dev_recvfrom     recvfrom
+#define rt_dev_sendto       sendto
+#define rt_dev_close        close
+#define rt_dev_connect      connect
+#define rt_dev_recv         recv
+#define rt_dev_send         send
+#define rt_dev_setsockopt   setsockopt
+#define RT_SO_TIMEOUT       SO_RCVTIMEO
 
 #endif
 
-#ifndef HAVE_RTNET
+
+#endif
+
+#ifndef XENOMAI_VERSION_MAJOR
 // Read elements from XML file
 static void findElementRecusive(xmlNode * a_node,const std::string element_to_find,std::string&  ret)
 {
@@ -166,16 +192,19 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
   //  Open Socket
   if(!ip.empty() && openSockets())
   {
-#ifndef HAVE_RTNET
-	std::cout << "Initializing ft sensor (gnulinux) "<< std::endl;
-        if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, SO_RCVTIMEO,&timeval_,sizeof(timeval_)) < 0)
-            std::cerr << "Error setting timeout" << std::endl;
-#else
-	std::cout << "Initializing ft sensor (xenomai + rtnet)"<< std::endl;
-        nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
-        if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
-            std::cerr << "Error setting timeout" << std::endl;
+
+#if !defined(XENOMAI_VERSION_MAJOR) || (XENOMAI_VERSION_MAJOR == 3)
+
+	std::cout << "Initializing ft sensor"<< std::endl;
+    if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, RT_SO_TIMEOUT,&timeval_,sizeof(timeval_)) < 0)
+        std::cerr << "Error setting timeout" << std::endl;
+#elif XENOMAI_VERSION_MAJOR == 2
+	std::cout << "Initializing ft sensor (xenomai 2.x + rtnet)"<< std::endl;
+    nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
+    if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
+        std::cerr << "Error setting timeout" << std::endl;
 #endif
+
     if(!stopStreaming()) // if previously launched
         std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
     setCommand(cmd); // Setting cmd mode
@@ -267,7 +296,7 @@ bool FTSensor::getCalibrationData()
   }else
       std::cout << "Using current calibration" << std::endl;
   
-#ifndef HAVE_RTNET
+#ifndef XENOMAI_VERSION_MAJOR
   xmlNode *root_element = NULL;
   std::string filename = "http://"+getIP()+"/netftapi2.xml"+index;
 
@@ -360,7 +389,7 @@ bool FTSensor::setRDTOutputRate(unsigned int rate)
 
     if (rt_dev_send(socketHTTPHandle_, request_s.c_str(),request_s.length(), 0) < 0)
     {
-#ifndef HAVE_RTNET
+#ifndef XENOMAI_VERSION_MAJOR
         std::cerr << "Could not send GET request to "<<host<<":80."<<std::endl;
 #else
         std::cerr << "Could not send GET request to "<<host<<":80. Please make sure that RTnet TCP protocol is installed"<<std::endl;
