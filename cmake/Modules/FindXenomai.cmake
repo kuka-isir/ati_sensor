@@ -32,7 +32,7 @@ endif()
 
 if(NOT XENOMAI_XENO_CONFIG )
     set(XENOMAI_FOUND FALSE)
-    message(SEND_ERROR "Your Xenomai installation is broken: I can not determine Xenomai cflags/ldflags without xeno-config.")
+    #message(SEND_ERROR "Your Xenomai installation is broken: I can not determine Xenomai cflags/ldflags without xeno-config.")
 else()
     execute_process(COMMAND ${XENOMAI_XENO_CONFIG} --version OUTPUT_VARIABLE XENOMAI_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
     string(REPLACE "." ";" XENOMAI_VERSION_LIST ${XENOMAI_VERSION} )
