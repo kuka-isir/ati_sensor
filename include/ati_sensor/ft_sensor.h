@@ -14,6 +14,8 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sstream>
+#include <map>
+#include <vector>
 
 #define MAX_XML_SIZE 35535
 #define RDT_RECORD_SIZE 36
@@ -54,6 +56,15 @@ public:
   // Constructor
   FTSensor();
   ~FTSensor();
+  
+  enum settings_error_t
+  {
+    NO_SETTINGS_ERROR,
+    SETTINGS_REQUEST_ERROR,
+    CALIB_PARSE_ERROR,
+    GAUGE_PARSE_ERROR,
+    RDTRATE_PARSE_ERROR
+  };
   
   // Initialization, reading parameters from XML files, etc..
   bool init(std::string ip, int calibration_index = ati::current_calibration,
@@ -98,7 +109,13 @@ public:
   void setTimeout(float sec);
   bool isInitialized();
   bool getCalibrationData();
+  settings_error_t getSettings();
   bool setRDTOutputRate(unsigned int rate);
+  std::vector<int> getGaugeBias();
+  bool setGaugeBias(unsigned int gauge_idx, int gauge_bias);
+  bool setGaugeBias(std::map<unsigned int, int> &gauge_map);
+  bool setGaugeBias(std::vector<int> &gauge_vect);
+
 protected:
   // Socket info
   bool startRealTimeStreaming(uint32_t sample_count=1);
@@ -118,11 +135,13 @@ protected:
   bool sendCommand();
   bool sendCommand(uint16_t cmd);
   bool getResponse();
+  bool sendTCPrequest(std::string &request_cmd);
   void doComm();
   std::string ip;
   uint16_t port;
   int calibration_index;
   int rdt_rate_;
+  int *setbias_;
   int socketHandle_;
   int socketHTTPHandle_;  
   struct sockaddr_in addr_; 

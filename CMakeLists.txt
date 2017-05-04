@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   std_msgs
   geometry_msgs
-  cmake_modules
 )
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
@@ -41,27 +40,32 @@ add_library(${library_name}
 
 # Allows to build for Xenomai + RTnet
 find_package(Xenomai QUIET)
-if(${Xenomai_FOUND})
-  find_package(RTnet REQUIRED)
-  include_directories(${Xenomai_INCLUDE_DIR} ${RTNET_INCLUDE_DIRS})
-  set_property(TARGET ${library_name} APPEND PROPERTY COMPILE_DEFINITIONS HAVE_RTNET XENOMAI)
-  message(STATUS "Building ATI FT/Sensor with Xenomai + RTNET")
+
+if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "xenomai"))
+  add_definitions(-DXENOMAI_VERSION_MAJOR=${XENOMAI_VERSION_MAJOR})
+  if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
+      find_package(RTnet REQUIRED)
+      include_directories(${RTNET_INCLUDE_DIRS})
+      target_link_libraries(${library_name} rtdm)
+  endif()
+  include_directories(${XENOMAI_INCLUDE_DIR})
+  message("Building ATI FT/Sensor with Xenomai + RTNET")
 else()
   find_package(LibXml2 REQUIRED)
   include_directories(${LIBXML2_INCLUDE_DIR})
 endif()
 
-target_link_libraries(${library_name} ${LIBXML2_LIBRARIES} ${Xenomai_RTDM_LIBRARIES})
+target_link_libraries(${library_name} ${LIBXML2_LIBRARIES} ${XENOMAI_LIBRARIES})
 
 
 #### ROS wrapper
-
 add_executable(${ros_exec_name}
   src/ft_sensor_node.cpp
 )
 target_link_libraries(${ros_exec_name}
   ${library_name}
   ${catkin_LIBRARIES}
+  ${XENOMAI_LIBRARIES}
 )
 
 #### Simple tester (no ROS)
@@ -70,6 +74,14 @@ add_executable(${standalone_exec_name}
   test/simple_reader.cpp
 )
 target_link_libraries(${standalone_exec_name}
+  ${library_name}
+  ${XENOMAI_LIBRARIES}
+)
+
+add_executable(gauge_bias_tester
+  test/test_gauge_bias.cpp
+)
+target_link_libraries(gauge_bias_tester
   ${library_name}
 )
 
