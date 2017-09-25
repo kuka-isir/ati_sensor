@@ -44,62 +44,59 @@ if(XENOMAI_XENO_CONFIG )
     list(GET XENOMAI_VERSION_LIST 0 XENOMAI_VERSION_MAJOR)
     list(GET XENOMAI_VERSION_LIST 1 XENOMAI_VERSION_MINOR)
     list(GET XENOMAI_VERSION_LIST 2 XENOMAI_VERSION_PATCH)
-else()
-    set(XENOMAI_FOUND FALSE)
-    return()
-    #message(FATAL_ERROR "Your Xenomai installation is broken: I can not determine Xenomai cflags/ldflags without xeno-config.")
+
+    # Here we have xeno-config
+    if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
+        set(XENOMAI_SKIN_NAME   native)
+    endif()
+
+    if(${XENOMAI_VERSION_MAJOR} EQUAL 3)
+        set(XENOMAI_SKIN_NAME   alchemy)
+        # NOTE: --auto-init-solib bootstraps xenomai_init()
+        set(XENO_CONFIG_LDFLAGS_EXTRA_ARGS "--auto-init-solib")
+    endif()
+
+    if(NOT XENOMAI_SKIN_NAME)
+        message(FATAL_ERROR "Only Xenomai 2.x and 3.x are supported, your version is ${XENOMAI_VERSION}")
+    endif()
+
+    message(STATUS "Xenomai ${XENOMAI_VERSION} detected, searching for ${XENOMAI_SKIN_NAME} skin.")
+
+    execute_process(COMMAND ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --ldflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}
+                    OUTPUT_VARIABLE XENOMAI_LDFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_VARIABLE XENOMAI_LDFLAGS_ERROR)
+    execute_process(COMMAND ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --cflags ${XENOMAI_COMPAT}
+                    OUTPUT_VARIABLE XENOMAI_CFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_VARIABLE XENOMAI_CFLAGS_ERROR)
+
+    if( XENOMAI_LDFLAGS_ERROR)
+        message(FATAL_ERROR "Could not determine ldflags with command ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --ldflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}")
+    endif()
+
+    if( XENOMAI_CFLAGS_ERROR)
+        message(FATAL_ERROR "Could not determine cflags with command ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --cflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}")
+    endif()
+
+    string(REGEX MATCHALL "-L([^ ]+)|-l([^ ]+)" XENOMAI_LIBRARY ${XENOMAI_LDFLAGS})
+    string(REGEX MATCHALL "-I([^ ]+)" XENOMAI_INCLUDE_DIR ${XENOMAI_CFLAGS})
+    string(REGEX MATCHALL "-D([^ ]+)" XENOMAI_COMPILE_DEFINITIONS ${XENOMAI_CFLAGS})
+    string(REPLACE "-I" ";" XENOMAI_INCLUDE_DIR ${XENOMAI_INCLUDE_DIR})
+
+    # Set the include dir variables and the libraries and let libfind_process do the rest.
+    # NOTE: Singular variables for this library, plural for libraries this this lib depends on.
+    set(XENOMAI_PROCESS_INCLUDES XENOMAI_INCLUDE_DIR)
+    set(XENOMAI_PROCESS_LIBS XENOMAI_LIBRARY)
+
+    message(STATUS "
+    ==========================================
+    Xenomai ${XENOMAI_VERSION} ${XENOMAI_SKIN_NAME} skin
+        libs    : ${XENOMAI_LIBRARY}
+        include : ${XENOMAI_INCLUDE_DIR}
+        ldflags : ${XENOMAI_LDFLAGS}
+        cflags  : ${XENOMAI_CFLAGS}
+    ==========================================
+    ")
+
 endif()
-
-# Here we have xeno-config
-if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
-    set(XENOMAI_SKIN_NAME   native)
-endif()
-
-if(${XENOMAI_VERSION_MAJOR} EQUAL 3)
-    set(XENOMAI_SKIN_NAME   alchemy)
-    # NOTE: --auto-init-solib bootstraps xenomai_init()
-    set(XENO_CONFIG_LDFLAGS_EXTRA_ARGS "--auto-init-solib")
-endif()
-
-if(NOT XENOMAI_SKIN_NAME)
-    message(FATAL_ERROR "Only Xenomai 2.x and 3.x are supported, your version is ${XENOMAI_VERSION}")
-endif()
-
-message(STATUS "Xenomai ${XENOMAI_VERSION} detected, searching for ${XENOMAI_SKIN_NAME} skin.")
-
-execute_process(COMMAND ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --ldflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}
-                OUTPUT_VARIABLE XENOMAI_LDFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE
-                ERROR_VARIABLE XENOMAI_LDFLAGS_ERROR)
-execute_process(COMMAND ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --cflags ${XENOMAI_COMPAT}
-                OUTPUT_VARIABLE XENOMAI_CFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE
-                ERROR_VARIABLE XENOMAI_CFLAGS_ERROR)
-
-if( XENOMAI_LDFLAGS_ERROR)
-    message(FATAL_ERROR "Could not determine ldflags with command ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --ldflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}")
-endif()
-
-if( XENOMAI_CFLAGS_ERROR)
-    message(FATAL_ERROR "Could not determine cflags with command ${XENOMAI_XENO_CONFIG} --skin=${XENOMAI_SKIN_NAME} --cflags ${XENO_CONFIG_LDFLAGS_EXTRA_ARGS}")
-endif()
-
-string(REGEX MATCHALL "-L([^ ]+)|-l([^ ]+)" XENOMAI_LIBRARY ${XENOMAI_LDFLAGS})
-string(REGEX MATCHALL "-I([^ ]+)" XENOMAI_INCLUDE_DIR ${XENOMAI_CFLAGS})
-string(REGEX MATCHALL "-D([^ ]+)" XENOMAI_COMPILE_DEFINITIONS ${XENOMAI_CFLAGS})
-string(REPLACE "-I" ";" XENOMAI_INCLUDE_DIR ${XENOMAI_INCLUDE_DIR})
-
-# Set the include dir variables and the libraries and let libfind_process do the rest.
-# NOTE: Singular variables for this library, plural for libraries this this lib depends on.
-set(XENOMAI_PROCESS_INCLUDES XENOMAI_INCLUDE_DIR)
-set(XENOMAI_PROCESS_LIBS XENOMAI_LIBRARY)
-
-message(STATUS "
-==========================================
-Xenomai ${XENOMAI_VERSION} ${XENOMAI_SKIN_NAME} skin
-    libs    : ${XENOMAI_LIBRARY}
-    include : ${XENOMAI_INCLUDE_DIR}
-    ldflags : ${XENOMAI_LDFLAGS}
-    cflags  : ${XENOMAI_CFLAGS}
-==========================================
-")
 
 libfind_process(XENOMAI)
