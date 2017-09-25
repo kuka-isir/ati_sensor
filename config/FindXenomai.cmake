@@ -82,11 +82,6 @@ if(XENOMAI_XENO_CONFIG )
     string(REGEX MATCHALL "-D([^ ]+)" XENOMAI_COMPILE_DEFINITIONS ${XENOMAI_CFLAGS})
     string(REPLACE "-I" ";" XENOMAI_INCLUDE_DIR ${XENOMAI_INCLUDE_DIR})
 
-    # Set the include dir variables and the libraries and let libfind_process do the rest.
-    # NOTE: Singular variables for this library, plural for libraries this this lib depends on.
-    set(XENOMAI_PROCESS_INCLUDES XENOMAI_INCLUDE_DIR)
-    set(XENOMAI_PROCESS_LIBS XENOMAI_LIBRARY)
-
     message(STATUS "
     ==========================================
     Xenomai ${XENOMAI_VERSION} ${XENOMAI_SKIN_NAME} skin
@@ -98,5 +93,10 @@ if(XENOMAI_XENO_CONFIG )
     ")
 
 endif()
+
+# Set the include dir variables and the libraries and let libfind_process do the rest.
+# NOTE: Singular variables for this library, plural for libraries this this lib depends on.
+set(XENOMAI_PROCESS_INCLUDES XENOMAI_INCLUDE_DIR)
+set(XENOMAI_PROCESS_LIBS XENOMAI_LIBRARY)
 
 libfind_process(XENOMAI)
