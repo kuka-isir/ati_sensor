@@ -33,6 +33,8 @@ if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "
     message("[${PROJECT_NAME}] Building ATI FT/Sensor for Xenomai ${XENOMAI_VERSION} + RTnet")
     if(${XENOMAI_VERSION_MAJOR} EQUAL 3)
         find_package(XenomaiPosix REQUIRED)
+        include_directories(${XENOMAI_POSIX_INCLUDE_DIRS})
+        add_definitions(${XENOMAI_POSIX_CFLAGS})
     endif()
     if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
         find_package(RTnet REQUIRED)
@@ -45,7 +47,7 @@ else()
     include_directories(${LIBXML2_INCLUDE_DIR})
 endif()
 
-target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${XENOMAI_POSIX_LIBRAIRIES})
+target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${XENOMAI_POSIX_LIBRARIES})
 
 add_executable(ft_sensor_node src/ft_sensor_node.cpp)
 target_link_libraries(ft_sensor_node ati_sensor ${catkin_LIBRARIES})
