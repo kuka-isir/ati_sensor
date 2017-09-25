@@ -45,7 +45,9 @@ if(XENOMAI_POSIX_XENO_CONFIG )
     list(GET XENOMAI_POSIX_VERSION_LIST 1 XENOMAI_POSIX_VERSION_MINOR)
     list(GET XENOMAI_POSIX_VERSION_LIST 2 XENOMAI_POSIX_VERSION_PATCH)
 else()
-    message(FATAL_ERROR "Your Xenomai installation is broken: I can not determine Xenomai cflags/ldflags without xeno-config.")
+    set(XENOMAI_POSIX_FOUND FALSE)
+    return()
+    #message(FATAL_ERROR "Your Xenomai installation is broken: I can not determine Xenomai cflags/ldflags without xeno-config.")
 endif()
 
 # Here we have xeno-config
