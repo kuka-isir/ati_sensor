@@ -29,25 +29,30 @@ add_library(ati_sensor src/ft_sensor.cpp)
 find_package(Xenomai QUIET)
 # Allows to build for Xenomai + RTnet
 if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "xenomai"))
+    # add the FindXenomai.cmake
     set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/config)
+
     message("[${PROJECT_NAME}] Building ATI FT/Sensor for Xenomai ${XENOMAI_VERSION} + RTnet")
-    if(${XENOMAI_VERSION_MAJOR} EQUAL 3)
-        find_package(XenomaiPosix REQUIRED)
-        include_directories(${XENOMAI_POSIX_INCLUDE_DIRS})
-        add_definitions(${XENOMAI_POSIX_CFLAGS})
-    endif()
+    message("[${PROJECT_NAME}] Compiling with ${XENOMAI_RTDM_LIBRARIES} and ${XENOMAI_RTDM_INCLUDE_DIRS} and ${XENOMAI_RTDM_CFLAGS}")
+
+    # In Xenomai 3 it contains RTnet
+    include_directories(${XENOMAI_RTDM_INCLUDE_DIRS})
+    add_definitions(${XENOMAI_RTDM_CFLAGS})
+
+    # In Xenomai 2 we need the external RTnet
     if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
         find_package(RTnet REQUIRED)
-        include_directories(${XENOMAI_INCLUDE_DIRS} ${RTNET_INCLUDE_DIRS})
-        target_link_libraries(ati_sensor rtdm ${XENOMAI_LIBRARIES})
+        include_directories(${RTNET_INCLUDE_DIRS})
     endif()
+
     set_target_properties(ati_sensor PROPERTIES COMPILE_FLAGS -DXENOMAI_VERSION_MAJOR=${XENOMAI_VERSION_MAJOR})
 else()
+    message(WARNING "[${PROJECT_NAME}] Building ATI FT/Sensor WITHOUT Xenomai/RTnet support")
     find_package(LibXml2 REQUIRED)
     include_directories(${LIBXML2_INCLUDE_DIR})
 endif()
 
-target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${XENOMAI_POSIX_LIBRARIES})
+target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${XENOMAI_RTDM_LIBRARIES})
 
 add_executable(ft_sensor_node src/ft_sensor_node.cpp)
 target_link_libraries(ft_sensor_node ati_sensor ${catkin_LIBRARIES})
