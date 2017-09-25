@@ -26,7 +26,7 @@ include_directories(include
 
 add_library(ati_sensor src/ft_sensor.cpp)
 
-find_package(Xenomai)
+find_package(Xenomai QUIET)
 # Allows to build for Xenomai + RTnet
 if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "xenomai"))
     set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/config)
@@ -34,13 +34,18 @@ if(XENOMAI_FOUND OR (DEFINED $ENV{OROCOS_TARGET} AND $ENV{OROCOS_TARGET} EQUAL "
     if(${XENOMAI_VERSION_MAJOR} EQUAL 3)
         find_package(XenomaiPosix REQUIRED)
     endif()
+    if(${XENOMAI_VERSION_MAJOR} EQUAL 2)
+        find_package(RTnet REQUIRED)
+        include_directories(${XENOMAI_INCLUDE_DIRS} ${RTNET_INCLUDE_DIRS})
+        target_link_libraries(ati_sensor rtdm ${XENOMAI_LIBRARIES})
+    endif()
     set_target_properties(ati_sensor PROPERTIES COMPILE_FLAGS -DXENOMAI_VERSION_MAJOR=${XENOMAI_VERSION_MAJOR})
 else()
     find_package(LibXml2 REQUIRED)
     include_directories(${LIBXML2_INCLUDE_DIR})
 endif()
 
-target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${Xenomai_RTDM_LIBRARIES} ${XENOMAI_POSIX_LIBRAIRIES})
+target_link_libraries(ati_sensor ${LIBXML2_LIBRARIES} ${XENOMAI_POSIX_LIBRAIRIES})
 
 add_executable(ft_sensor_node src/ft_sensor_node.cpp)
 target_link_libraries(ft_sensor_node ati_sensor ${catkin_LIBRARIES})
