@@ -44,7 +44,6 @@ class FTSensorPublisher
     //! Subscribes to and advertises topics
     FTSensorPublisher(ros::NodeHandle nh) : nh_(nh), priv_nh_("~")
     {
-
       priv_nh_.param<std::string>("frame", frame_ft_, "/ati_ft_link");
       priv_nh_.param<std::string>("ip", ip_, "192.168.100.103");
       
@@ -55,18 +54,23 @@ class FTSensorPublisher
       ftsensor_ = boost::shared_ptr<ati::FTSensor>(new ati::FTSensor());
 
       // Init FT Sensor
-      ftsensor_->init(ip_);
-      // Set bias
-      ftsensor_->setBias();
-      
-      ROS_INFO_STREAM("ATISensor RDT Rate : "<< ftsensor_->getRDTRate());
+      if (ftsensor_->init(ip_))
+      {
+        // Set bias
+        ftsensor_->setBias();
+        
+        ROS_INFO_STREAM("ATISensor RDT Rate : "<< ftsensor_->getRDTRate());
 
-      // Advertise topic where readings are published
-      pub_sensor_readings_ = priv_nh_.advertise<geometry_msgs::WrenchStamped>("data", 10);
-      
-      // Advertise service for setting the bias
-      srv_set_bias_ = priv_nh_.advertiseService("set_bias", &FTSensorPublisher::setBiasCallback, this);
-
+        // Advertise topic where readings are published
+        pub_sensor_readings_ = priv_nh_.advertise<geometry_msgs::WrenchStamped>("data", 10);
+        
+        // Advertise service for setting the bias
+        srv_set_bias_ = priv_nh_.advertiseService("set_bias", &FTSensorPublisher::setBiasCallback, this);
+      }
+      else
+      {
+        throw std::runtime_error("FT sensor could not initialize");
+      }
     }
 
     //! Empty stub
@@ -109,14 +113,20 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "ft_sensor");
   ros::NodeHandle nh;
   ros::Rate loop(100);
-  ftsensor::FTSensorPublisher node(nh);
-
-  while(ros::ok())
+  try
   {
-    node.publishMeasurements();
-    ros::spinOnce();  
+    ftsensor::FTSensorPublisher node(nh);
+    while(ros::ok())
+    {
+      node.publishMeasurements();
+      ros::spinOnce();  
 
-    loop.sleep();
+      loop.sleep();
+    }
+  }
+  catch (std::exception &ex) {
+    ROS_FATAL_STREAM("Failed with error : " << ex.what());
+    return -1;
   }
   return 0;
 }
