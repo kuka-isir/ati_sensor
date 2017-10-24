@@ -2,7 +2,7 @@
   <arg name="ip" default="192.168.100.103"/>
   <arg name="frame" default="/ati_link"/>
 
-  <node pkg="ati_sensor" name="ft_sensor" type="ft_sensor" respawn="true" output="screen">
+  <node pkg="ati_sensor" name="ft_sensor" type="ft_sensor_node" respawn="true" output="screen">
     <param name="ip" value="$(arg ip)" />
     <param name="frame" value="$(arg frame)" />
   </node>
