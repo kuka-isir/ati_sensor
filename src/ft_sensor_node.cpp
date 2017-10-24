@@ -22,17 +22,17 @@ class FTSensorPublisher
     //! Node handle in the private namespace
     ros::NodeHandle priv_nh_;
 
-    //! The sensor 
+    //! The sensor
     boost::shared_ptr<ati::FTSensor> ftsensor_;
     std::string ip_;
     std::string frame_ft_;
-    
+
     //! Publisher for sensor readings
     ros::Publisher pub_sensor_readings_;
 
     //! Service for setting the bias
     ros::ServiceServer srv_set_bias_;
-    
+
   public:
     //------------------ Callbacks -------------------
     // Callback for setting bias
@@ -46,7 +46,7 @@ class FTSensorPublisher
     {
       priv_nh_.param<std::string>("frame", frame_ft_, "/ati_ft_link");
       priv_nh_.param<std::string>("ip", ip_, "192.168.100.103");
-      
+
       ROS_INFO_STREAM("ATISensor IP : "<< ip_);
       ROS_INFO_STREAM("ATISensor frame : "<< frame_ft_);
 
@@ -58,12 +58,12 @@ class FTSensorPublisher
       {
         // Set bias
         ftsensor_->setBias();
-        
+
         ROS_INFO_STREAM("ATISensor RDT Rate : "<< ftsensor_->getRDTRate());
 
         // Advertise topic where readings are published
         pub_sensor_readings_ = priv_nh_.advertise<geometry_msgs::WrenchStamped>("data", 10);
-        
+
         // Advertise service for setting the bias
         srv_set_bias_ = priv_nh_.advertiseService("set_bias", &FTSensorPublisher::setBiasCallback, this);
       }
@@ -90,7 +90,7 @@ void FTSensorPublisher::publishMeasurements()
   geometry_msgs::WrenchStamped ftreadings;
   float measurements[6];
   ftsensor_->getMeasurements(measurements);
-  
+
   ftreadings.wrench.force.x = measurements[0];
   ftreadings.wrench.force.y = measurements[1];
   ftreadings.wrench.force.z = measurements[2];
@@ -108,7 +108,7 @@ void FTSensorPublisher::publishMeasurements()
 
 } // namespace ftsensor
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
   ros::init(argc, argv, "ft_sensor");
   ros::NodeHandle nh;
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     while(ros::ok())
     {
       node.publishMeasurements();
-      ros::spinOnce();  
+      ros::spinOnce();
 
       loop.sleep();
     }
