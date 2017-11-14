@@ -16,6 +16,7 @@
 // ISIR 2015 Antoine Hoarau <hoarau.robotics@gmail.com>
 
 #include "ati_sensor/ft_sensor.h"
+#include <stdexcept>
 
 #ifndef XENOMAI_VERSION_MAJOR
 
@@ -224,30 +225,29 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
 
 #if !defined(XENOMAI_VERSION_MAJOR) || (XENOMAI_VERSION_MAJOR == 3)
 
-	std::cout << "Initializing ft sensor"<< std::endl;
     if (rt_dev_setsockopt(socketHandle_, SOL_SOCKET, RT_SO_TIMEOUT,&timeval_,sizeof(timeval_)) < 0)
         std::cerr << "Error setting timeout" << std::endl;
 #elif XENOMAI_VERSION_MAJOR == 2
-	std::cout << "Initializing ft sensor (xenomai 2.x + rtnet)"<< std::endl;
+    std::cout << "Initializing ft sensor (xenomai 2.x + rtnet)"<< std::endl;
     nanosecs_rel_t timeout = (long long)timeval_.tv_sec*1E9 + (long long)timeval_.tv_usec*1E3;
     if( rt_dev_ioctl(socketHandle_, RTNET_RTIOC_TIMEOUT, &timeout) < 0)
         std::cerr << "Error setting timeout" << std::endl;
 #endif
 
     if(!stopStreaming()) // if previously launched
-        std::cerr << "\033[1;31mCould not stop streaming\033[0m" << std::endl;
+        std::cerr << "\033[33mCould not stop streaming\033[0m" << std::endl;
     setCommand(cmd); // Setting cmd mode
 
     initialized_ &= startStreaming(sample_count);            // Starting streaming
 
     if (!initialized_)
+    {
         std::cerr << "\033[1;31mCould not start streaming\033[0m" << std::endl;
-
+        return initialized_;
+    }
     initialized_ &= getResponse();
 
-    if (!initialized_)
-        std::cerr << "\033[1;31mCould not get response\033[0m" << std::endl;
-      // Parse Calibration from web server
+    // Parse Calibration from web server
     if(initialized_)
         getCalibrationData();
   }else
@@ -260,29 +260,41 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
 }
 bool FTSensor::openSockets()
 {
-  // To get the online configuration (need to build rtnet with TCP option)
-  openSocket(socketHTTPHandle_,getIP(),80,IPPROTO_TCP);
-  // The data socket
-  openSocket(socketHandle_,getIP(),getPort(),IPPROTO_UDP);
-
-  return socketHTTPHandle_ !=-1 && socketHandle_ !=-1;
+  try{
+    // To get the online configuration (need to build rtnet with TCP option)
+    openSocket(socketHTTPHandle_,getIP(),80,IPPROTO_TCP);
+    // The data socket
+    openSocket(socketHandle_,getIP(),getPort(),IPPROTO_UDP);
+  }
+  catch (std::exception &ex) {
+    std::cerr << "\033[1;31mopenSockets error: " << ex.what()  <<"\033[0m" << std::endl;
+    return false;
+  }
+  return true;
 }
 void FTSensor::openSocket(int& handle,const std::string ip,const uint16_t port,const int option)
 {
   // create the socket
     if (handle != -1)
         rt_dev_close(handle);
-
+    std::string proto = "";
     if(option == IPPROTO_UDP)
+    {
+        proto = "UDP";
         handle = rt_dev_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
     else if(option == IPPROTO_TCP)
+    {
+        proto = "TCP";
         handle = rt_dev_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    }
     else
         handle = rt_dev_socket(AF_INET, SOCK_DGRAM, 0);
 
     if (handle < 0) {
-        std::cerr << "failed to init sensor socket, please make sure your can ping the sensor"<<std::endl;
-        return;
+        std::cerr << "\033[31mCould not init sensor socket for proto [" << proto 
+                  << "], please make sure your can ping the sensor\033[0m" << std::endl;
+        throw std::runtime_error("failed to init sensor socket");
     }
 
     // re-use address in case it's still binded
@@ -300,7 +312,10 @@ void FTSensor::openSocket(int& handle,const std::string ip,const uint16_t port,c
 
     // connect
     if (rt_dev_connect(handle, (struct sockaddr*) &addr, sizeof(addr)) < 0)
-        std::cerr  << "\033[1;31mCould not connect to "<<ip<<":"<<port<<"\033[0m" << std::endl ;
+    {
+        std::cerr << "\033[31mCould not connect to " << ip << ":" << port << "\033[0m" << std::endl ;
+        throw std::runtime_error("failed to connect to socket" );
+    }
     return;
 }
 bool FTSensor::closeSockets()
@@ -613,7 +628,7 @@ bool FTSensor::getResponse()
   resp_.Tz = static_cast<int32_t>(ntohl(*reinterpret_cast<int32_t*>(&response_[12 + 5 * 4])));
   if (response_ret_ < 0)
   {
-    std::cerr << "Error while receiving: " << strerror(errno) << std::endl;
+    std::cerr << "\033[1;31mError while receiving: " << strerror(errno) << "\033[0m" << std::endl;
   }
   if (response_ret_!=RDT_RECORD_SIZE)
     std::cerr << "Error of package size " <<response_ret_ << " but should be "<< RDT_RECORD_SIZE <<std::endl;
