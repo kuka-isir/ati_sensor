@@ -103,6 +103,9 @@ public:
   // Write the ip of the sensor
   const std::string getIP(){return this->ip;}
   const uint16_t getPort(){return this->port;}
+  std::string message_header(){std::stringstream ss;
+                               ss << "[ft_sensor " <<  this->ip << ":" <<  this->port << "] ";
+                               return ss.str();}
   const int getRDTRate(){return this->rdt_rate_;}
   // Set the zero of the sensor	
   void setBias();
