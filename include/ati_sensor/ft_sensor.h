@@ -94,7 +94,8 @@ public:
     SETTINGS_REQUEST_ERROR,
     CALIB_PARSE_ERROR,
     GAUGE_PARSE_ERROR,
-    RDTRATE_PARSE_ERROR
+    RDTRATE_PARSE_ERROR,
+    HEALTH_ERROR
   };
   
   // Initialization, reading parameters from XML files, etc..
