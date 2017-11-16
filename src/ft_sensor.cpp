@@ -159,8 +159,8 @@ FTSensor::FTSensor()
 FTSensor::~FTSensor()
 {
   stopStreaming();
-  if( 0 == closeSockets())
-      std::cout << message_header() << "Sensor shutdown sucessfully" << std::endl;
+  if(!closeSockets())
+    std::cerr << message_header() << "Sensor did not shutdown correctly" << std::endl;
   delete setbias_;
 }
 
@@ -320,12 +320,12 @@ void FTSensor::openSocket(int& handle,const std::string ip,const uint16_t port,c
 }
 bool FTSensor::closeSockets()
 {
-  return closeSocket(socketHandle_) > 0 && closeSocket(socketHTTPHandle_) > 0;
+  return closeSocket(socketHandle_) == 0 && closeSocket(socketHTTPHandle_) == 0;
 }
 int FTSensor::closeSocket(const int& handle)
 {
-  if(handle < 0 )
-      return true;
+  if(handle < 0)
+    return 0;  // closing a non-open socket is considered successful
   return rt_dev_close(handle);
 }
 
