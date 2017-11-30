@@ -80,7 +80,7 @@ function(find_xeno_skin_variables prefix skin_name)
     set(${prefix}_FOUND TRUE)
 
     if(NOT ${${prefix}_LDFLAGS} STREQUAL "")
-        string(REGEX MATCHALL "-L([^ ]+)|-l([^ ]+)" ${prefix}_LIBRARY ${${prefix}_LDFLAGS})
+        string(REGEX MATCHALL "-L([^ ]+)|-l([^ ]+)|.*bootstrap(-pic)?.o" ${prefix}_LIBRARY ${${prefix}_LDFLAGS})
     else()
         set(${prefix}_LIBRARY "")
     endif()
