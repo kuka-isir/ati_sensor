@@ -232,7 +232,12 @@ bool FTSensor::init(std::string ip, int calibration_index, uint16_t cmd, int sam
 
     // Parse Calibration from web server
     if(initialized_)
-        getCalibrationData();
+    {
+      if(!getCalibrationData())
+      {
+        initialized_ = false;
+      }
+    }
   }else
     initialized_ = false;
 
@@ -315,16 +320,24 @@ int FTSensor::closeSocket(const int& handle)
 bool FTSensor::getCalibrationData()
 {
   FTSensor::settings_error_t err = getSettings();
-  if(err!=SETTINGS_REQUEST_ERROR && err!=CALIB_PARSE_ERROR)
+  if(err==HEALTH_ERROR)
   {
-      std::cout << message_header() << "Sucessfully retrieved counts per force : " << resp_.cpf << std::endl;
-      std::cout << message_header() << "Sucessfully retrieved counts per torque : " << resp_.cpt << std::endl;
+    return false;
   }
   else
   {
-      std::cerr << message_header() << "Using default counts per force : " << resp_.cpf << std::endl;
-      std::cerr << message_header() << "Using default counts per torque : " << resp_.cpt << std::endl;
+    if(err!=SETTINGS_REQUEST_ERROR && err!=CALIB_PARSE_ERROR)
+    {
+        std::cout << message_header() << "Sucessfully retrieved counts per force : " << resp_.cpf << std::endl;
+        std::cout << message_header() << "Sucessfully retrieved counts per torque : " << resp_.cpt << std::endl;
+    }
+    else
+    {
+        std::cerr << message_header() << "Using default counts per force : " << resp_.cpf << std::endl;
+        std::cerr << message_header() << "Using default counts per torque : " << resp_.cpt << std::endl;
+    }
   }
+  return true;
 }
 
 FTSensor::settings_error_t FTSensor::getSettings()
@@ -347,6 +360,14 @@ FTSensor::settings_error_t FTSensor::getSettings()
   if (doc != NULL)
   {
       root_element = xmlDocGetRootElement(doc);
+
+      std::string runstat;
+      findElementRecusive(root_element, "runstat", runstat);
+      if (runstat != "0x00000000")
+      {
+        std::cerr << "\033[31m" << message_header() << "Sensor is not healthy\033[0m" << std::endl;
+        return HEALTH_ERROR;
+      }
 
       std::string cfgcpf;
       findElementRecusive(root_element,"cfgcpf",cfgcpf);
@@ -411,7 +432,14 @@ FTSensor::settings_error_t FTSensor::getSettings()
                 break;
     }
     xml_s_ = xml_c_;
-
+    
+    std::string runstat = getStringInXml(xml_s_, "runstat");
+    if (runstat != "0x00000000")
+    {
+      std::cerr << "\033[31m" << message_header() << "Sensor is not healthy\033[0m" << std::endl;
+      return HEALTH_ERROR;
+    }
+      
     const uint32_t cfgcpf_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpf");
     const uint32_t cfgcpt_r = getNumberInXml<uint32_t>(xml_s_,"cfgcpt");
     const int cfgcomrdtrate = getNumberInXml<int>(xml_s_,"comrdtrate");
@@ -527,7 +555,7 @@ bool FTSensor::setGaugeBias(unsigned int gauge_idx, int gauge_bias)
 std::vector<int> FTSensor::getGaugeBias()
 {
   FTSensor::settings_error_t err = getSettings();
-  if(err!=SETTINGS_REQUEST_ERROR && err!=GAUGE_PARSE_ERROR)
+  if(err!=SETTINGS_REQUEST_ERROR && err!=GAUGE_PARSE_ERROR && err!=HEALTH_ERROR)
   {
      std::vector<int> bias(setbias_, setbias_ + 6);
      return bias;
